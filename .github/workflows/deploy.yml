@@ -1,0 +1,34 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  web-deploy:
+    name: 🎉 Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Get Latest Code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: 📦 Install Dependencies
+        run: npm install
+
+      - name: 🏗️ Build Project
+        run: npm run build
+
+      - name: 📂 Sync Files via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./dist/
+          server-dir: ./public_html/
