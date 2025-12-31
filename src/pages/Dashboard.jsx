@@ -57,7 +57,7 @@ const Dashboard = () => {
 	};
 
 	// ==========================================
-	// 🎨 VISUAL RENDER (STRICT RESTORATION)
+	// 🎨 VISUAL RENDER (USING LOCKED COMPONENT)
 	// ==========================================
 	return (
 		<div className="flex-1 p-4 lg:p-8 overflow-y-auto bg-[#0B1120] text-slate-100 font-sans">
@@ -92,40 +92,43 @@ const Dashboard = () => {
 				</div>
 			</header>
 
-			{/* --- GAUGES (RESTORED TO CLEAN CARD STYLE) --- */}
+			{/* --- GAUGES SECTION --- */}
+			{/* We now simply invoke the component. It handles its own layout. */}
 			<section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
-				{/* LOVE GAUGE - Clean, No Gradients */}
-				<div className="bg-[#0f1522] rounded-2xl p-6 border border-slate-800 flex flex-col items-center justify-center min-h-[200px]">
-					{/* The Gauge Component handles the arc and number */}
-					<div className="mb-4 transform scale-110">
-						<ArcGauge value={currentStats.love} max={40} color="#ef4444" />
-					</div>
-					<h3 className="text-rose-400 font-bold tracking-[0.2em] text-xs uppercase mt-[-10px]">LOVE & FAMILY</h3>
-					<div className="text-slate-500 text-[10px] uppercase tracking-wider mt-1">Connection Needed</div>
-				</div>
+				<ArcGauge
+					value={currentStats.love}
+					max={40}
+					color="#ef4444"
+					label="LOVE & FAMILY"
+					subLabel="Connection Needed"
+					gradientFrom="from-[#1e1b2e]" // Colors from Design System
+					gradientTo="to-[#0f172a]"
+				/>
 
-				{/* HEALTH GAUGE - Clean, No Gradients */}
-				<div className="bg-[#0f1522] rounded-2xl p-6 border border-slate-800 flex flex-col items-center justify-center min-h-[200px]">
-					<div className="mb-4 transform scale-110">
-						<ArcGauge value={currentStats.health} max={30} color="#06b6d4" />
-					</div>
-					<h3 className="text-cyan-400 font-bold tracking-[0.2em] text-xs uppercase mt-[-10px]">HEALTH & BODY</h3>
-					<div className="text-slate-500 text-[10px] uppercase tracking-wider mt-1">Maintenance Required</div>
-				</div>
+				<ArcGauge
+					value={currentStats.health}
+					max={30}
+					color="#06b6d4"
+					label="HEALTH & BODY"
+					subLabel="Maintenance Required"
+					gradientFrom="from-[#0f2231]"
+					gradientTo="to-[#0f172a]"
+				/>
 
-				{/* FREEDOM GAUGE - Clean, No Gradients */}
-				<div className="bg-[#0f1522] rounded-2xl p-6 border border-slate-800 flex flex-col items-center justify-center min-h-[200px]">
-					<div className="mb-4 transform scale-110">
-						<ArcGauge value={currentStats.freedom} max={50} color="#f59e0b" />
-					</div>
-					<h3 className="text-amber-400 font-bold tracking-[0.2em] text-xs uppercase mt-[-10px]">FREEDOM & FINANCE</h3>
-					<div className="text-slate-500 text-[10px] uppercase tracking-wider mt-1">Action Required</div>
-				</div>
+				<ArcGauge
+					value={currentStats.freedom}
+					max={50}
+					color="#f59e0b"
+					label="FREEDOM & FINANCE"
+					subLabel="Action Required"
+					gradientFrom="from-[#1f1e1b]"
+					gradientTo="to-[#0f172a]"
+				/>
 
 			</section>
 
-			{/* --- TACTICAL PRIORITIES & WIDGETS --- */}
+			{/* --- TACTICAL PRIORITIES --- */}
 			<section className="grid grid-cols-1 xl:grid-cols-3 gap-8">
 				<div className="xl:col-span-2">
 					<div className="flex items-center justify-between mb-6">
