@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* GLOBAL RESET & ATMOSPHERE */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  /* Deep Navy Background Base */
+  background-color: #0F172A;
+  color: #E2E8F0;
+  overflow: hidden;
+}
+
+/* THE CYBER MESH BACKGROUND - RESTORED VIBRANCY */
+body {
+  background-image:
+    /* 1. Large Central Glow (Top Center) */
+    radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.1) 0%, transparent 70%),
+
+    /* 2. Grid Lines (Horizontal) */
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+
+    /* 3. Grid Lines (Vertical) */
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+
+  background-size: 100% 100%, 60px 60px, 60px 60px;
+  background-position: top center, center top, center top;
+}
+
+/* CUSTOM SCROLLBAR */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
