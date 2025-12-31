@@ -7,7 +7,7 @@ import { APP_VERSION } from '../constants';
 import { MASTER_LIBRARY, PV_TIERS } from '../data/master_library';
 import { getDayNumber, getFormattedDate } from '../utils/dateHelpers';
 
-// 2. IMPORT UI (Note: Sidebar removed to fix duplication)
+// 2. IMPORT UI
 import ArcGauge from '../components/ArcGauge';
 
 const Dashboard = () => {
@@ -17,10 +17,21 @@ const Dashboard = () => {
 	const dayNumber = getDayNumber();
 	const currentDate = getFormattedDate();
 
-	// Local State for "Day 1" Interaction
+	// A. Dynamic Greeting Logic (Restored)
+	const getTimeBasedGreeting = () => {
+		const hour = new Date().getHours();
+		if (hour < 5) return 'Good late night'; // For those developer all-nighters
+		if (hour < 12) return 'Good morning';
+		if (hour < 18) return 'Good afternoon';
+		return 'Good evening';
+	};
+
+	const greeting = getTimeBasedGreeting();
+
+	// B. Local State for Menu Interaction
 	const [selectedIds, setSelectedIds] = useState([]);
 
-	// Scoring Algorithm
+	// C. Scoring Algorithm
 	const calculateStats = () => {
 		let stats = { total: 0, health: 0, freedom: 0, love: 0 };
 		selectedIds.forEach(id => {
@@ -37,7 +48,7 @@ const Dashboard = () => {
 
 	const currentStats = calculateStats();
 
-	// Interaction Handler
+	// D. Interaction Handler
 	const toggleItem = (id) => {
 		if (selectedIds.includes(id)) {
 			setSelectedIds(selectedIds.filter(itemId => itemId !== id));
@@ -46,7 +57,7 @@ const Dashboard = () => {
 		}
 	};
 
-	// Tier Label Logic
+	// E. Tier Label Logic
 	const getTierLabel = (score) => {
 		if (score >= PV_TIERS.zenith.min) return PV_TIERS.zenith.label;
 		if (score >= PV_TIERS.fantastic.min) return PV_TIERS.fantastic.label;
@@ -57,12 +68,12 @@ const Dashboard = () => {
 	};
 
 	// ==========================================
-	// 🎨 VISUAL RENDER (RESTORED DESIGN)
+	// 🎨 VISUAL RENDER
 	// ==========================================
 	return (
 		<div className="flex-1 p-4 lg:p-8 overflow-y-auto bg-[#0B1120] text-slate-100 font-sans">
 
-			{/* --- HEADER SECTION (Restored "Good Morning") --- */}
+			{/* --- HEADER SECTION --- */}
 			<header className="mb-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
 
 				{/* LEFT: Status Badges */}
@@ -77,17 +88,17 @@ const Dashboard = () => {
 					</div>
 				</div>
 
-				{/* CENTER: The Greeting (Absolute Center on Desktop) */}
+				{/* CENTER: The Greeting (Dynamic) */}
 				<div className="text-center order-1 xl:order-2 xl:absolute xl:left-1/2 xl:-translate-x-1/2">
 					<h1 className="text-3xl font-bold text-white tracking-tight drop-shadow-md">
-						Good morning, <span className="text-blue-400">Architect</span>
+						{greeting}, <span className="text-blue-400">Architect</span>
 					</h1>
 					<p className="text-slate-400 text-sm mt-1 font-medium">
 						{currentDate} • Day {dayNumber} of 365
 					</p>
 				</div>
 
-				{/* RIGHT: Daily PV Widget (Restored High Contrast Card) */}
+				{/* RIGHT: Daily PV Widget */}
 				<div className="order-3 bg-[#1A2435] p-4 rounded-xl border border-slate-700/50 shadow-lg flex items-center gap-5 min-w-[180px] justify-between">
 					<div className="text-right">
 						<div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-0.5">Daily PV</div>
@@ -102,7 +113,7 @@ const Dashboard = () => {
 				</div>
 			</header>
 
-			{/* --- GAUGES SECTION (Restored Card Style) --- */}
+			{/* --- GAUGES SECTION --- */}
 			<section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 				{/* LOVE GAUGE */}
 				<div className="bg-[#0f1522] rounded-2xl p-6 border border-slate-800 shadow-xl relative overflow-hidden group hover:border-rose-500/30 transition-all duration-500">
@@ -144,7 +155,7 @@ const Dashboard = () => {
 			{/* --- TACTICAL PRIORITIES (The Logic Input) --- */}
 			<section className="grid grid-cols-1 xl:grid-cols-3 gap-8">
 
-				{/* INPUT STREAM (Replacing "Tactical Priorities" with interactive list) */}
+				{/* INPUT STREAM */}
 				<div className="xl:col-span-2">
 					<div className="flex items-center justify-between mb-6">
 						<h2 className="text-lg font-medium text-slate-200 tracking-wide flex items-center gap-2">
@@ -160,7 +171,6 @@ const Dashboard = () => {
 						{MASTER_LIBRARY.filter(t => t.status === 'active').map((task) => {
 							const isSelected = selectedIds.includes(task.id);
 
-							// Visual Logic for Selection
 							let borderClass = isSelected
 								? 'border-blue-500/50 bg-blue-900/10'
 								: 'border-slate-800 bg-[#0f1522] hover:border-slate-700';
@@ -182,7 +192,6 @@ const Dashboard = () => {
 											<div className={`font-medium text-sm transition-colors ${textColor}`}>
 												{task.label}
 											</div>
-											{/* Tiny Tag for Category */}
 											<div className="flex items-center gap-2 mt-1">
 												<span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
 													task.category === 'health' ? 'text-cyan-400 bg-cyan-950/30' :
@@ -196,7 +205,6 @@ const Dashboard = () => {
 										</div>
 									</div>
 
-									{/* Points Pill */}
 									<div className={`text-sm font-bold px-3 py-1 rounded-lg ${isSelected ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-800 text-slate-500'}`}>
 										{task.points > 0 ? '+' : ''}{task.points} PV
 									</div>
@@ -206,7 +214,7 @@ const Dashboard = () => {
 					</div>
 				</div>
 
-				{/* STRATEGIC OUTLOOK (Restored Visual Placeholder) */}
+				{/* STRATEGIC OUTLOOK */}
 				<div className="xl:col-span-1">
 					<div className="flex items-center justify-between mb-6">
 						<h2 className="text-lg font-medium text-slate-200 tracking-wide">STRATEGIC OUTLOOK</h2>
