@@ -1,6 +1,6 @@
 // src/pages/Library.jsx
 import React, { useState } from 'react';
-import { Database, Plus, Trash2, Sliders, Layers, Clock, Repeat, CheckSquare } from 'lucide-react';
+import { Database, Plus, Trash2, Sliders, Layers, Clock, Repeat, CheckSquare, Edit2, X, Save } from 'lucide-react';
 import { MASTER_LIBRARY } from '../data/master_library';
 
 // --- THE GUARDIAN SCORING LOGIC ---
@@ -19,6 +19,7 @@ const SCORING_TIERS = [
 
 const Library = () => {
 	const [library, setLibrary] = useState(MASTER_LIBRARY);
+	const [editingId, setEditingId] = useState(null); // Track which item is being edited
 
 	// FORM STATE
 	const [newItem, setNewItem] = useState({
@@ -27,12 +28,13 @@ const Library = () => {
 		tierId: 'lvl2',
 		points: 10,
 		type: 'habit', // 'habit' or 'project'
-		duration: 15   // Minutes
+		duration: 15
 	});
 
 	const PILLARS = ['love', 'health', 'freedom'];
 
-	// TIER HANDLER
+	// --- HANDLERS ---
+
 	const handleTierChange = (newTierId) => {
 		const tier = SCORING_TIERS.find(t => t.id === newTierId);
 		setNewItem({
@@ -42,7 +44,6 @@ const Library = () => {
 		});
 	};
 
-	// CATEGORY TOGGLE HANDLER
 	const toggleCategory = (cat) => {
 		const current = newItem.categories;
 		if (current.includes(cat)) {
@@ -54,20 +55,66 @@ const Library = () => {
 		}
 	};
 
-	const currentTier = SCORING_TIERS.find(t => t.id === newItem.tierId);
-	const splitPoints = Math.floor(newItem.points / newItem.categories.length * 10) / 10;
-
+	// 1. CREATE NEW
 	const handleAddItem = () => {
 		if (!newItem.label) return;
 		const item = {
 			id: Date.now().toString(),
 			...newItem,
-			category: newItem.categories[0], // Fallback
+			category: newItem.categories[0], // Fallback for legacy support
 			status: 'active'
 		};
 		setLibrary([item, ...library]);
-		setNewItem({ ...newItem, label: '' }); // Reset only label
+		resetForm();
 	};
+
+	// 2. LOAD EDIT MODE
+	const handleEditItem = (item) => {
+		setEditingId(item.id);
+		// Map the item properties back to the form state
+		setNewItem({
+			label: item.label,
+			categories: item.categories || [item.category],
+			tierId: item.tierId || 'lvl2', // Fallback if tier missing
+			points: item.points,
+			type: item.type || 'habit',
+			duration: item.duration || 15
+		});
+	};
+
+	// 3. SAVE UPDATES
+	const handleUpdateItem = () => {
+		setLibrary(library.map(item =>
+			item.id === editingId
+				? { ...item, ...newItem, category: newItem.categories[0] }
+				: item
+		));
+		resetForm();
+	};
+
+	// 4. CANCEL EDIT
+	const resetForm = () => {
+		setEditingId(null);
+		setNewItem({
+			label: '',
+			categories: ['love'],
+			tierId: 'lvl2',
+			points: 10,
+			type: 'habit',
+			duration: 15
+		});
+	};
+
+	// 5. DELETE ITEM
+	const handleDeleteItem = (id) => {
+		if (window.confirm("Are you sure you want to delete this Protocol? This will remove it from your Library, but History will remain intact.")) {
+			setLibrary(library.filter(item => item.id !== id));
+			if (editingId === id) resetForm();
+		}
+	};
+
+	const currentTier = SCORING_TIERS.find(t => t.id === newItem.tierId);
+	const splitPoints = Math.floor(newItem.points / newItem.categories.length * 10) / 10;
 
 	return (
 		<div className="h-screen w-full bg-[#0B1120] text-slate-100 font-sans overflow-hidden flex flex-col">
@@ -88,13 +135,23 @@ const Library = () => {
 			{/* MAIN CONTENT */}
 			<div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-0">
 
-				{/* LEFT: CALIBRATOR */}
-				<div className="lg:col-span-4 p-6 bg-[#0f1522] border-r border-slate-800 overflow-y-auto custom-scrollbar">
-					<div className="bg-[#1A2435] border border-slate-700/50 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+				{/* LEFT: CALIBRATOR (Dynamic Form) */}
+				<div className={`lg:col-span-4 p-6 border-r border-slate-800 overflow-y-auto custom-scrollbar transition-colors duration-300 ${editingId ? 'bg-blue-900/5' : 'bg-[#0f1522]'}`}>
+					<div className={`border rounded-2xl p-6 shadow-xl relative overflow-hidden transition-all duration-300 ${editingId ? 'bg-[#1e293b] border-blue-500/50' : 'bg-[#1A2435] border-slate-700/50'}`}>
 
-						<h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-							<Sliders size={14} /> Protocol Calibrator
-						</h2>
+						{/* Background Accent */}
+						<div className={`absolute top-0 right-0 p-32 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none transition-colors duration-500 ${editingId ? 'bg-amber-500/10' : 'bg-blue-500/5'}`}></div>
+
+						<div className="flex items-center justify-between mb-6">
+							<h2 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${editingId ? 'text-amber-400' : 'text-slate-400'}`}>
+								<Sliders size={14} /> {editingId ? 'EDITING PROTOCOL' : 'PROTOCOL CALIBRATOR'}
+							</h2>
+							{editingId && (
+								<button onClick={resetForm} className="text-[10px] font-bold text-slate-400 hover:text-white flex items-center gap-1 bg-slate-800 px-2 py-1 rounded">
+									<X size={10} /> CANCEL
+								</button>
+							)}
+						</div>
 
 						{/* 1. NAME */}
 						<div className="mb-5">
@@ -143,7 +200,7 @@ const Library = () => {
 							</div>
 						</div>
 
-						{/* 3. TYPE & DURATION (NEW) */}
+						{/* 3. TYPE & DURATION */}
 						<div className="grid grid-cols-2 gap-4 mb-5">
 							{/* TYPE TOGGLE */}
 							<div>
@@ -219,12 +276,17 @@ const Library = () => {
 							/>
 						</div>
 
-						{/* SAVE */}
+						{/* SAVE/UPDATE ACTION */}
 						<button
-							onClick={handleAddItem}
-							className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 active:scale-[0.98]"
+							onClick={editingId ? handleUpdateItem : handleAddItem}
+							className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] ${
+								editingId
+								? 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-900/20'
+								: 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-blue-900/20'
+							}`}
 						>
-							<Plus size={18} /> INITIALIZE PROTOCOL
+							{editingId ? <Save size={18} /> : <Plus size={18} />}
+							{editingId ? 'UPDATE PROTOCOL' : 'INITIALIZE PROTOCOL'}
 						</button>
 					</div>
 				</div>
@@ -243,7 +305,14 @@ const Library = () => {
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						{library.map((item) => (
-							<div key={item.id} className="group p-4 rounded-xl border border-slate-800 bg-[#0f1522] hover:border-slate-700 transition-all flex justify-between items-center">
+							<div
+								key={item.id}
+								className={`group p-4 rounded-xl border transition-all flex justify-between items-center ${
+									editingId === item.id
+									? 'border-amber-500/50 bg-amber-500/5'
+									: 'border-slate-800 bg-[#0f1522] hover:border-slate-700'
+								}`}
+							>
 								<div>
 									<div className="font-medium text-slate-200 text-sm flex items-center gap-2">
 										{item.type === 'habit' ? <Repeat size={12} className="text-blue-400" /> : <CheckSquare size={12} className="text-amber-400" />}
@@ -259,9 +328,23 @@ const Library = () => {
 										<span className="text-[10px] text-slate-600 font-bold">• {item.points} PV</span>
 									</div>
 								</div>
-								<button className="opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-red-400 transition-all">
-									<Trash2 size={16} />
-								</button>
+
+								<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+									<button
+										onClick={() => handleEditItem(item)}
+										className="p-2 text-slate-500 hover:text-amber-400 transition-colors bg-slate-800/50 rounded-lg hover:bg-slate-800"
+										title="Edit Protocol"
+									>
+										<Edit2 size={14} />
+									</button>
+									<button
+										onClick={() => handleDeleteItem(item.id)}
+										className="p-2 text-slate-500 hover:text-red-400 transition-colors bg-slate-800/50 rounded-lg hover:bg-slate-800"
+										title="Archive Protocol"
+									>
+										<Trash2 size={14} />
+									</button>
+								</div>
 							</div>
 						))}
 					</div>
