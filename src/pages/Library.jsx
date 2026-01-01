@@ -1,6 +1,6 @@
 // src/pages/Library.jsx
 import React, { useState } from 'react';
-import { Database, Plus, Trash2, Sliders, Layers, Info, Check } from 'lucide-react';
+import { Database, Plus, Trash2, Sliders, Layers, Clock, Repeat, CheckSquare } from 'lucide-react';
 import { MASTER_LIBRARY } from '../data/master_library';
 
 // --- THE GUARDIAN SCORING LOGIC ---
@@ -23,13 +23,13 @@ const Library = () => {
 	// FORM STATE
 	const [newItem, setNewItem] = useState({
 		label: '',
-		categories: ['love'], // Changed to Array for Multi-Select
+		categories: ['love'],
 		tierId: 'lvl2',
 		points: 10,
-		type: 'project'
+		type: 'habit', // 'habit' or 'project'
+		duration: 15   // Minutes
 	});
 
-	// PILLAR ORDER (Locked Requirement)
 	const PILLARS = ['love', 'health', 'freedom'];
 
 	// TIER HANDLER
@@ -42,11 +42,10 @@ const Library = () => {
 		});
 	};
 
-	// CATEGORY TOGGLE HANDLER (Multi-Select Logic)
+	// CATEGORY TOGGLE HANDLER
 	const toggleCategory = (cat) => {
 		const current = newItem.categories;
 		if (current.includes(cat)) {
-			// Prevent removing the last category (must have at least one)
 			if (current.length > 1) {
 				setNewItem({ ...newItem, categories: current.filter(c => c !== cat) });
 			}
@@ -55,10 +54,7 @@ const Library = () => {
 		}
 	};
 
-	// Helper to get current tier object
 	const currentTier = SCORING_TIERS.find(t => t.id === newItem.tierId);
-
-	// CALCULATION: Split Points Logic
 	const splitPoints = Math.floor(newItem.points / newItem.categories.length * 10) / 10;
 
 	const handleAddItem = () => {
@@ -66,18 +62,17 @@ const Library = () => {
 		const item = {
 			id: Date.now().toString(),
 			...newItem,
-			// For backward compatibility, primary category is first in list
-			category: newItem.categories[0],
+			category: newItem.categories[0], // Fallback
 			status: 'active'
 		};
 		setLibrary([item, ...library]);
-		setNewItem({ ...newItem, label: '' });
+		setNewItem({ ...newItem, label: '' }); // Reset only label
 	};
 
 	return (
 		<div className="h-screen w-full bg-[#0B1120] text-slate-100 font-sans overflow-hidden flex flex-col">
 
-			{/* --- HEADER --- */}
+			{/* HEADER */}
 			<div className="flex-none p-6 border-b border-slate-800/50 bg-[#0B1120]">
 				<div className="flex items-center gap-3">
 					<div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
@@ -85,39 +80,37 @@ const Library = () => {
 					</div>
 					<div>
 						<h1 className="text-2xl font-bold text-white tracking-tight">The Architect's Ledger</h1>
-						<p className="text-slate-400 text-sm">Define Protocols based on the Scale of Point Values.</p>
+						<p className="text-slate-400 text-sm">Define Protocols based on Time, Energy, and Impact.</p>
 					</div>
 				</div>
 			</div>
 
-			{/* --- MAIN CONTENT --- */}
+			{/* MAIN CONTENT */}
 			<div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-0">
 
-				{/* LEFT: THE CALIBRATOR (Enhanced Form) */}
+				{/* LEFT: CALIBRATOR */}
 				<div className="lg:col-span-4 p-6 bg-[#0f1522] border-r border-slate-800 overflow-y-auto custom-scrollbar">
 					<div className="bg-[#1A2435] border border-slate-700/50 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-						{/* Background Accent */}
-						<div className="absolute top-0 right-0 p-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
 
 						<h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
 							<Sliders size={14} /> Protocol Calibrator
 						</h2>
 
-						{/* 1. PROTOCOL NAME */}
+						{/* 1. NAME */}
 						<div className="mb-5">
 							<label className="block text-[10px] uppercase font-bold text-slate-500 mb-2">Protocol Name</label>
 							<input
 								type="text"
 								value={newItem.label}
 								onChange={(e) => setNewItem({...newItem, label: e.target.value})}
-								placeholder="e.g. Morning Walk with Spouse"
-								className="w-full bg-[#0B1120] border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-blue-500 focus:outline-none transition-colors shadow-inner"
+								placeholder="e.g. Deep Work Session"
+								className="w-full bg-[#0B1120] border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-blue-500 focus:outline-none transition-colors"
 							/>
 						</div>
 
-						{/* 2. PILLAR ALIGNMENT (MULTI-SELECT) */}
+						{/* 2. PILLARS */}
 						<div className="mb-5">
-							<label className="block text-[10px] uppercase font-bold text-slate-500 mb-2">Pillar Alignment (Multi-Select)</label>
+							<label className="block text-[10px] uppercase font-bold text-slate-500 mb-2">Pillar Alignment</label>
 							<div className="grid grid-cols-3 gap-2">
 								{PILLARS.map(cat => {
 									const isActive = newItem.categories.includes(cat);
@@ -125,7 +118,6 @@ const Library = () => {
 									if (cat === 'love') activeColor = 'border-rose-500 bg-rose-500/10 text-rose-400';
 									if (cat === 'health') activeColor = 'border-cyan-500 bg-cyan-500/10 text-cyan-400';
 									if (cat === 'freedom') activeColor = 'border-amber-500 bg-amber-500/10 text-amber-400';
-
 									return (
 										<button
 											key={cat}
@@ -151,7 +143,43 @@ const Library = () => {
 							</div>
 						</div>
 
-						{/* 3. STRUCTURAL TIER */}
+						{/* 3. TYPE & DURATION (NEW) */}
+						<div className="grid grid-cols-2 gap-4 mb-5">
+							{/* TYPE TOGGLE */}
+							<div>
+								<label className="block text-[10px] uppercase font-bold text-slate-500 mb-2">Type</label>
+								<div className="flex bg-[#0B1120] p-1 rounded-lg border border-slate-700">
+									<button
+										onClick={() => setNewItem({...newItem, type: 'habit'})}
+										className={`flex-1 flex items-center justify-center gap-1 py-2 rounded text-[10px] font-bold uppercase ${newItem.type === 'habit' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+									>
+										<Repeat size={12} /> Habit
+									</button>
+									<button
+										onClick={() => setNewItem({...newItem, type: 'project'})}
+										className={`flex-1 flex items-center justify-center gap-1 py-2 rounded text-[10px] font-bold uppercase ${newItem.type === 'project' ? 'bg-amber-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+									>
+										<CheckSquare size={12} /> Proj.
+									</button>
+								</div>
+							</div>
+
+							{/* DURATION SLIDER */}
+							<div>
+								<div className="flex justify-between mb-2">
+									<label className="text-[10px] uppercase font-bold text-slate-500">Duration</label>
+									<span className="text-xs font-bold text-white">{newItem.duration}m</span>
+								</div>
+								<input
+									type="range" min="5" max="180" step="5"
+									value={newItem.duration}
+									onChange={(e) => setNewItem({...newItem, duration: parseInt(e.target.value)})}
+									className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+								/>
+							</div>
+						</div>
+
+						{/* 4. TIER */}
 						<div className="mb-6">
 							<label className="block text-[10px] uppercase font-bold text-slate-500 mb-2 flex items-center gap-2">
 								<Layers size={12} /> Structural Classification
@@ -167,13 +195,9 @@ const Library = () => {
 									</option>
 								))}
 							</select>
-							<div className="mt-2 text-[10px] text-slate-400 bg-slate-800/50 p-2 rounded border border-slate-700/50 leading-relaxed">
-								<span className="text-blue-400 font-bold">Scope: </span>
-								{currentTier.desc}
-							</div>
 						</div>
 
-						{/* 4. POINT VALUE (Constrained) */}
+						{/* 5. POINTS */}
 						<div className="mb-8 p-4 rounded-xl bg-[#0B1120] border border-slate-800">
 							<div className="flex justify-between items-end mb-4">
 								<div>
@@ -187,22 +211,15 @@ const Library = () => {
 									</div>
 								</div>
 							</div>
-
 							<input
-								type="range"
-								min={currentTier.min}
-								max={currentTier.max}
+								type="range" min={currentTier.min} max={currentTier.max}
 								value={newItem.points}
 								onChange={(e) => setNewItem({...newItem, points: parseInt(e.target.value)})}
 								className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
 							/>
-							<div className="flex justify-between text-[10px] text-slate-600 mt-2 font-mono">
-								<span>MIN: {currentTier.min}</span>
-								<span>MAX: {currentTier.max}</span>
-							</div>
 						</div>
 
-						{/* ACTION: Save */}
+						{/* SAVE */}
 						<button
 							onClick={handleAddItem}
 							className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 active:scale-[0.98]"
@@ -212,7 +229,7 @@ const Library = () => {
 					</div>
 				</div>
 
-				{/* RIGHT: THE ARCHIVES */}
+				{/* RIGHT: ARCHIVES */}
 				<div className="lg:col-span-8 p-6 overflow-y-auto custom-scrollbar bg-[#0B1120]">
 					<div className="flex justify-between items-center mb-6">
 						<h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -228,19 +245,17 @@ const Library = () => {
 						{library.map((item) => (
 							<div key={item.id} className="group p-4 rounded-xl border border-slate-800 bg-[#0f1522] hover:border-slate-700 transition-all flex justify-between items-center">
 								<div>
-									<div className="font-medium text-slate-200 text-sm">{item.label}</div>
-
-									{/* NEW: Multi-Category Display */}
+									<div className="font-medium text-slate-200 text-sm flex items-center gap-2">
+										{item.type === 'habit' ? <Repeat size={12} className="text-blue-400" /> : <CheckSquare size={12} className="text-amber-400" />}
+										{item.label}
+									</div>
 									<div className="flex items-center gap-2 mt-1 flex-wrap">
 										{(item.categories || [item.category]).map(cat => (
-											<span key={cat} className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-												cat === 'health' ? 'text-cyan-400 bg-cyan-950/30' :
-												cat === 'freedom' ? 'text-amber-400 bg-amber-950/30' :
-												'text-rose-400 bg-rose-950/30'
-											}`}>
-												{cat}
-											</span>
+											<span key={cat} className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${cat === 'health' ? 'text-cyan-400 bg-cyan-950/30' : cat === 'freedom' ? 'text-amber-400 bg-amber-950/30' : 'text-rose-400 bg-rose-950/30'}`}>{cat}</span>
 										))}
+										<span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
+											<Clock size={10} /> {item.duration || 15}m
+										</span>
 										<span className="text-[10px] text-slate-600 font-bold">• {item.points} PV</span>
 									</div>
 								</div>
@@ -251,7 +266,6 @@ const Library = () => {
 						))}
 					</div>
 				</div>
-
 			</div>
 		</div>
 	);
