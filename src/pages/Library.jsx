@@ -1,6 +1,6 @@
 // src/pages/Library.jsx
 import React, { useState } from 'react';
-import { Database, Plus, Trash2, Sliders, Layers, Clock, Repeat, CheckSquare, Edit2, X, Save } from 'lucide-react';
+import { Database, Plus, Trash2, Sliders, Layers, Clock, Repeat, CheckSquare, Edit2, X, Save, Zap } from 'lucide-react';
 import { MASTER_LIBRARY } from '../data/master_library';
 
 // --- THE GUARDIAN SCORING LOGIC ---
@@ -19,21 +19,18 @@ const SCORING_TIERS = [
 
 const Library = () => {
 	const [library, setLibrary] = useState(MASTER_LIBRARY);
-	const [editingId, setEditingId] = useState(null); // Track which item is being edited
+	const [editingId, setEditingId] = useState(null);
 
-	// FORM STATE
 	const [newItem, setNewItem] = useState({
 		label: '',
 		categories: ['love'],
 		tierId: 'lvl2',
 		points: 10,
-		type: 'habit', // 'habit' or 'project'
+		type: 'habit',
 		duration: 15
 	});
 
 	const PILLARS = ['love', 'health', 'freedom'];
-
-	// --- HANDLERS ---
 
 	const handleTierChange = (newTierId) => {
 		const tier = SCORING_TIERS.find(t => t.id === newTierId);
@@ -55,34 +52,30 @@ const Library = () => {
 		}
 	};
 
-	// 1. CREATE NEW
 	const handleAddItem = () => {
 		if (!newItem.label) return;
 		const item = {
 			id: Date.now().toString(),
 			...newItem,
-			category: newItem.categories[0], // Fallback for legacy support
+			category: newItem.categories[0],
 			status: 'active'
 		};
 		setLibrary([item, ...library]);
 		resetForm();
 	};
 
-	// 2. LOAD EDIT MODE
 	const handleEditItem = (item) => {
 		setEditingId(item.id);
-		// Map the item properties back to the form state
 		setNewItem({
 			label: item.label,
 			categories: item.categories || [item.category],
-			tierId: item.tierId || 'lvl2', // Fallback if tier missing
+			tierId: item.tierId || 'lvl2',
 			points: item.points,
 			type: item.type || 'habit',
-			duration: item.duration || 15
+			duration: item.duration !== undefined ? item.duration : 15
 		});
 	};
 
-	// 3. SAVE UPDATES
 	const handleUpdateItem = () => {
 		setLibrary(library.map(item =>
 			item.id === editingId
@@ -92,7 +85,6 @@ const Library = () => {
 		resetForm();
 	};
 
-	// 4. CANCEL EDIT
 	const resetForm = () => {
 		setEditingId(null);
 		setNewItem({
@@ -105,9 +97,8 @@ const Library = () => {
 		});
 	};
 
-	// 5. DELETE ITEM
 	const handleDeleteItem = (id) => {
-		if (window.confirm("Are you sure you want to delete this Protocol? This will remove it from your Library, but History will remain intact.")) {
+		if (window.confirm("Are you sure you want to delete this Protocol?")) {
 			setLibrary(library.filter(item => item.id !== id));
 			if (editingId === id) resetForm();
 		}
@@ -119,7 +110,6 @@ const Library = () => {
 	return (
 		<div className="h-screen w-full bg-[#0B1120] text-slate-100 font-sans overflow-hidden flex flex-col">
 
-			{/* HEADER */}
 			<div className="flex-none p-6 border-b border-slate-800/50 bg-[#0B1120]">
 				<div className="flex items-center gap-3">
 					<div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
@@ -132,14 +122,12 @@ const Library = () => {
 				</div>
 			</div>
 
-			{/* MAIN CONTENT */}
 			<div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-0">
 
-				{/* LEFT: CALIBRATOR (Dynamic Form) */}
+				{/* LEFT: CALIBRATOR */}
 				<div className={`lg:col-span-4 p-6 border-r border-slate-800 overflow-y-auto custom-scrollbar transition-colors duration-300 ${editingId ? 'bg-blue-900/5' : 'bg-[#0f1522]'}`}>
 					<div className={`border rounded-2xl p-6 shadow-xl relative overflow-hidden transition-all duration-300 ${editingId ? 'bg-[#1e293b] border-blue-500/50' : 'bg-[#1A2435] border-slate-700/50'}`}>
 
-						{/* Background Accent */}
 						<div className={`absolute top-0 right-0 p-32 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none transition-colors duration-500 ${editingId ? 'bg-amber-500/10' : 'bg-blue-500/5'}`}></div>
 
 						<div className="flex items-center justify-between mb-6">
@@ -160,7 +148,7 @@ const Library = () => {
 								type="text"
 								value={newItem.label}
 								onChange={(e) => setNewItem({...newItem, label: e.target.value})}
-								placeholder="e.g. Deep Work Session"
+								placeholder="e.g. PureView: Wholesome Visuals"
 								className="w-full bg-[#0B1120] border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-blue-500 focus:outline-none transition-colors"
 							/>
 						</div>
@@ -200,9 +188,9 @@ const Library = () => {
 							</div>
 						</div>
 
-						{/* 3. TYPE & DURATION */}
+						{/* 3. TYPE & DURATION (UPDATED FOR 0 MIN) */}
 						<div className="grid grid-cols-2 gap-4 mb-5">
-							{/* TYPE TOGGLE */}
+							{/* TYPE */}
 							<div>
 								<label className="block text-[10px] uppercase font-bold text-slate-500 mb-2">Type</label>
 								<div className="flex bg-[#0B1120] p-1 rounded-lg border border-slate-700">
@@ -221,17 +209,19 @@ const Library = () => {
 								</div>
 							</div>
 
-							{/* DURATION SLIDER */}
+							{/* DURATION SLIDER (Min 0) */}
 							<div>
 								<div className="flex justify-between mb-2">
 									<label className="text-[10px] uppercase font-bold text-slate-500">Duration</label>
-									<span className="text-xs font-bold text-white">{newItem.duration}m</span>
+									<span className={`text-xs font-bold ${newItem.duration === 0 ? 'text-emerald-400' : 'text-white'}`}>
+										{newItem.duration === 0 ? 'PASSIVE' : `${newItem.duration}m`}
+									</span>
 								</div>
 								<input
-									type="range" min="5" max="180" step="5"
+									type="range" min="0" max="180" step="5"
 									value={newItem.duration}
 									onChange={(e) => setNewItem({...newItem, duration: parseInt(e.target.value)})}
-									className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+									className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${newItem.duration === 0 ? 'bg-emerald-900 accent-emerald-500' : 'bg-slate-700 accent-blue-500'}`}
 								/>
 							</div>
 						</div>
@@ -276,7 +266,7 @@ const Library = () => {
 							/>
 						</div>
 
-						{/* SAVE/UPDATE ACTION */}
+						{/* SAVE/UPDATE */}
 						<button
 							onClick={editingId ? handleUpdateItem : handleAddItem}
 							className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] ${
@@ -322,8 +312,9 @@ const Library = () => {
 										{(item.categories || [item.category]).map(cat => (
 											<span key={cat} className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${cat === 'health' ? 'text-cyan-400 bg-cyan-950/30' : cat === 'freedom' ? 'text-amber-400 bg-amber-950/30' : 'text-rose-400 bg-rose-950/30'}`}>{cat}</span>
 										))}
-										<span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
-											<Clock size={10} /> {item.duration || 15}m
+										<span className={`text-[10px] font-mono flex items-center gap-1 ${item.duration === 0 ? 'text-emerald-500 font-bold' : 'text-slate-500'}`}>
+											{item.duration === 0 ? <Zap size={10} /> : <Clock size={10} />}
+											{item.duration === 0 ? 'PASSIVE' : `${item.duration}m`}
 										</span>
 										<span className="text-[10px] text-slate-600 font-bold">• {item.points} PV</span>
 									</div>
