@@ -1,20 +1,25 @@
 // src/pages/Library.jsx
 import React, { useState } from 'react';
-import { Database, Plus, Trash2, Sliders, Layers, Clock, Repeat, CheckSquare, Edit2, X, Save, Zap } from 'lucide-react';
+import { Database, Plus, Trash2, Sliders, Layers, Clock, Repeat, CheckSquare, Edit2, X, Save, Zap, Info } from 'lucide-react';
 import { MASTER_LIBRARY } from '../data/master_library';
 
-// --- THE GUARDIAN SCORING LOGIC ---
+// --- THE FULL SPECTRUM DECIMAL SCALE ---
+// Adapted from "Scale of Point Values" [Source: ASPIRATION-ARCHITECT-v0.02.docx]
+// Recalibrated for 4,400 Yearly Target (~12 PV/Day)
 const SCORING_TIERS = [
-	{ id: 'neg', label: 'Negative Behavior', quality: 'POOR', min: -5, max: -1, desc: 'Actions to avoid (e.g., Poor Sleep, Junk Food).' },
-	{ id: 'lvl1', label: 'L1: Routine & Personal Care', quality: 'FAIR', min: 1, max: 3, desc: 'Maintenance, Grooming, Errands.' },
-	{ id: 'lvl2', label: 'L2: Health & Wellness', quality: 'DECENT', min: 8, max: 12, desc: 'Gym, Sleep >60%, Hydration, Nutrition.' },
-	{ id: 'lvl3', label: 'L3: Growth & Connection', quality: 'GOOD', min: 14, max: 21, desc: 'Bills Paid, Thoughtful Gifts, Sleep >70%.' },
-	{ id: 'lvl4', label: 'L4: Holistic Well-Being', quality: 'SOLID', min: 20, max: 30, desc: 'Side Hustle Work, Home Repairs, Sleep >80%.' },
-	{ id: 'lvl5', label: 'L5: Efficiency Achievement', quality: 'WONDERFUL', min: 32, max: 48, desc: 'Business Objectives, Auto-Systems, Automation.' },
-	{ id: 'lvl6', label: 'L6: Lifestyle Boost', quality: 'FANTASTIC', min: 38, max: 57, desc: 'Income Boost, Credit Score milestones.' },
-	{ id: 'lvl7', label: 'L7: High Impact', quality: 'EXCEPTIONAL', min: 50, max: 79, desc: 'Major Life Upgrades, Perfect Days.' },
-	{ id: 'lvl8', label: 'L8: Pinnacle Achievement', quality: 'PINNACLE', min: 80, max: 99, desc: 'Buying Land, New Car, Major Renovation.' },
-	{ id: 'lvl9', label: 'L9: Zenith', quality: 'ZENITH', min: 100, max: 150, desc: 'Life-Altering Milestones (Eudemonic Ascent).' },
+	{ id: 'neg', label: 'Negative Behavior', quality: 'POOR', min: -5.0, max: -0.5, desc: 'Actions to avoid (e.g., Poor Sleep, Junk Food).' },
+	{ id: 't1', label: 'Fair (Routine)', quality: 'FAIR', min: 0.5, max: 1.5, desc: 'Neither good nor bad. Routine maintenance.' },
+	{ id: 't2', label: 'Decent (Habit)', quality: 'DECENT', min: 2.0, max: 3.5, desc: 'Satisfactory and mildly positive.' },
+	{ id: 't3', label: 'Good (Effort)', quality: 'GOOD', min: 4.0, max: 5.5, desc: 'Enjoyable and fulfilling.' },
+	{ id: 't4', label: 'Solid (Reliable)', quality: 'SOLID', min: 6.0, max: 7.5, desc: 'Marked by stability and reliability.' },
+	{ id: 't5', label: 'Great (Exceeds)', quality: 'GREAT', min: 8.0, max: 9.5, desc: 'Exceeds expectations with positive experiences.' },
+	{ id: 't6', label: 'Wonderful (Target)', quality: 'WONDERFUL', min: 10.0, max: 12.5, desc: 'Delightful moments. HITS DAILY TARGET.' },
+	{ id: 't7', label: 'Fantastic (Achieve)', quality: 'FANTASTIC', min: 13.0, max: 16.5, desc: 'Exceptional experiences or achievements.' },
+	{ id: 't8', label: 'Outstanding', quality: 'OUTSTANDING', min: 17.0, max: 20.5, desc: 'Remarkable and significantly better than usual.' },
+	{ id: 't9', label: 'Exceptional', quality: 'EXCEPTIONAL', min: 21.0, max: 25.5, desc: 'Extraordinary; surpasses normal expectations.' },
+	{ id: 't10', label: 'Perfect', quality: 'PERFECT', min: 26.0, max: 30.0, desc: 'Ideal day; flawless execution.' },
+	{ id: 't11', label: 'Pinnacle', quality: 'PINNACLE', min: 30.5, max: 40.0, desc: 'A major Goal has been Achieved.' },
+	{ id: 't12', label: 'Zenith', quality: 'ZENITH', min: 40.5, max: 50.0, desc: 'Eudemonic ascent; transformative milestone.' },
 ];
 
 const Library = () => {
@@ -24,23 +29,25 @@ const Library = () => {
 	const [newItem, setNewItem] = useState({
 		label: '',
 		categories: ['love'],
-		tierId: 'lvl2',
-		points: 10,
+		tierId: 't2', // Default to Decent
+		points: 2.5,
 		type: 'habit',
 		duration: 15
 	});
 
 	const PILLARS = ['love', 'health', 'freedom'];
 
+	// TIER HANDLER
 	const handleTierChange = (newTierId) => {
 		const tier = SCORING_TIERS.find(t => t.id === newTierId);
 		setNewItem({
 			...newItem,
 			tierId: newTierId,
-			points: Math.round((tier.min + tier.max) / 2)
+			points: tier.min // Snap to start of range
 		});
 	};
 
+	// CATEGORY TOGGLE
 	const toggleCategory = (cat) => {
 		const current = newItem.categories;
 		if (current.includes(cat)) {
@@ -52,6 +59,7 @@ const Library = () => {
 		}
 	};
 
+	// CRUD HANDLERS
 	const handleAddItem = () => {
 		if (!newItem.label) return;
 		const item = {
@@ -69,7 +77,7 @@ const Library = () => {
 		setNewItem({
 			label: item.label,
 			categories: item.categories || [item.category],
-			tierId: item.tierId || 'lvl2',
+			tierId: item.tierId || 't2',
 			points: item.points,
 			type: item.type || 'habit',
 			duration: item.duration !== undefined ? item.duration : 15
@@ -90,8 +98,8 @@ const Library = () => {
 		setNewItem({
 			label: '',
 			categories: ['love'],
-			tierId: 'lvl2',
-			points: 10,
+			tierId: 't2',
+			points: 2.5,
 			type: 'habit',
 			duration: 15
 		});
@@ -105,7 +113,7 @@ const Library = () => {
 	};
 
 	const currentTier = SCORING_TIERS.find(t => t.id === newItem.tierId);
-	const splitPoints = Math.floor(newItem.points / newItem.categories.length * 10) / 10;
+	const splitPoints = (newItem.points / newItem.categories.length).toFixed(2);
 
 	return (
 		<div className="h-screen w-full bg-[#0B1120] text-slate-100 font-sans overflow-hidden flex flex-col">
@@ -117,7 +125,7 @@ const Library = () => {
 					</div>
 					<div>
 						<h1 className="text-2xl font-bold text-white tracking-tight">The Architect's Ledger</h1>
-						<p className="text-slate-400 text-sm">Define Protocols based on Time, Energy, and Impact.</p>
+						<p className="text-slate-400 text-sm">Full Spectrum Calibration (Decimal System)</p>
 					</div>
 				</div>
 			</div>
@@ -148,7 +156,7 @@ const Library = () => {
 								type="text"
 								value={newItem.label}
 								onChange={(e) => setNewItem({...newItem, label: e.target.value})}
-								placeholder="e.g. PureView: Wholesome Visuals"
+								placeholder="e.g. 15m Morning Yoga"
 								className="w-full bg-[#0B1120] border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-blue-500 focus:outline-none transition-colors"
 							/>
 						</div>
@@ -188,7 +196,7 @@ const Library = () => {
 							</div>
 						</div>
 
-						{/* 3. TYPE & DURATION (UPDATED FOR 0 MIN) */}
+						{/* 3. TYPE & DURATION */}
 						<div className="grid grid-cols-2 gap-4 mb-5">
 							{/* TYPE */}
 							<div>
@@ -209,7 +217,7 @@ const Library = () => {
 								</div>
 							</div>
 
-							{/* DURATION SLIDER (Min 0) */}
+							{/* DURATION */}
 							<div>
 								<div className="flex justify-between mb-2">
 									<label className="text-[10px] uppercase font-bold text-slate-500">Duration</label>
@@ -226,8 +234,8 @@ const Library = () => {
 							</div>
 						</div>
 
-						{/* 4. TIER */}
-						<div className="mb-6">
+						{/* 4. TIER SELECTOR */}
+						<div className="mb-4">
 							<label className="block text-[10px] uppercase font-bold text-slate-500 mb-2 flex items-center gap-2">
 								<Layers size={12} /> Structural Classification
 							</label>
@@ -242,14 +250,23 @@ const Library = () => {
 									</option>
 								))}
 							</select>
+
+							{/* MENTAL MODEL DESCRIPTION */}
+							<div className="mt-2 flex gap-2 items-start p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+								<Info size={14} className="text-blue-400 shrink-0 mt-0.5" />
+								<p className="text-[10px] text-blue-200 leading-relaxed font-medium">
+									{currentTier.desc}
+								</p>
+							</div>
 						</div>
 
-						{/* 5. POINTS */}
+						{/* 5. POINTS SLIDER (DECIMAL) */}
 						<div className="mb-8 p-4 rounded-xl bg-[#0B1120] border border-slate-800">
 							<div className="flex justify-between items-end mb-4">
 								<div>
 									<div className="text-[10px] uppercase font-bold text-slate-500">Value (PV)</div>
-									<div className="text-2xl font-bold text-white tracking-tighter mt-1">{newItem.points}</div>
+									{/* Display 1 decimal place */}
+									<div className="text-2xl font-bold text-white tracking-tighter mt-1">{newItem.points.toFixed(1)}</div>
 								</div>
 								<div className="text-right">
 									<div className="text-[10px] uppercase font-bold text-slate-500">Quality</div>
@@ -259,11 +276,18 @@ const Library = () => {
 								</div>
 							</div>
 							<input
-								type="range" min={currentTier.min} max={currentTier.max}
+								type="range"
+								min={currentTier.min}
+								max={currentTier.max}
+								step={0.5} // DECIMAL STEP
 								value={newItem.points}
-								onChange={(e) => setNewItem({...newItem, points: parseInt(e.target.value)})}
+								onChange={(e) => setNewItem({...newItem, points: parseFloat(e.target.value)})}
 								className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
 							/>
+							<div className="flex justify-between text-[10px] text-slate-600 mt-2 font-mono">
+								<span>MIN: {currentTier.min}</span>
+								<span>MAX: {currentTier.max}</span>
+							</div>
 						</div>
 
 						{/* SAVE/UPDATE */}
@@ -321,18 +345,10 @@ const Library = () => {
 								</div>
 
 								<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-									<button
-										onClick={() => handleEditItem(item)}
-										className="p-2 text-slate-500 hover:text-amber-400 transition-colors bg-slate-800/50 rounded-lg hover:bg-slate-800"
-										title="Edit Protocol"
-									>
+									<button onClick={() => handleEditItem(item)} className="p-2 text-slate-500 hover:text-amber-400 transition-colors bg-slate-800/50 rounded-lg hover:bg-slate-800">
 										<Edit2 size={14} />
 									</button>
-									<button
-										onClick={() => handleDeleteItem(item.id)}
-										className="p-2 text-slate-500 hover:text-red-400 transition-colors bg-slate-800/50 rounded-lg hover:bg-slate-800"
-										title="Archive Protocol"
-									>
+									<button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-500 hover:text-red-400 transition-colors bg-slate-800/50 rounded-lg hover:bg-slate-800">
 										<Trash2 size={14} />
 									</button>
 								</div>
