@@ -1,11 +1,9 @@
 // src/pages/Library.jsx
-import React, { useState, useEffect } from 'react';
-import { Database, Plus, Trash2, Sliders, Layers, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { Database, Plus, Trash2, Sliders, Layers, Info, Check } from 'lucide-react';
 import { MASTER_LIBRARY } from '../data/master_library';
 
 // --- THE GUARDIAN SCORING LOGIC ---
-// Derived strictly from "Scale of Point Values" & "Daily Count" Tables
-// [Source: ASPIRATION-ARCHITECT-v0.02.docx]
 const SCORING_TIERS = [
 	{ id: 'neg', label: 'Negative Behavior', quality: 'POOR', min: -5, max: -1, desc: 'Actions to avoid (e.g., Poor Sleep, Junk Food).' },
 	{ id: 'lvl1', label: 'L1: Routine & Personal Care', quality: 'FAIR', min: 1, max: 3, desc: 'Maintenance, Grooming, Errands.' },
@@ -25,35 +23,55 @@ const Library = () => {
 	// FORM STATE
 	const [newItem, setNewItem] = useState({
 		label: '',
-		category: 'freedom',
-		tierId: 'lvl2', // Default to Health
-		points: 10,     // Default within Lvl2 range
+		categories: ['love'], // Changed to Array for Multi-Select
+		tierId: 'lvl2',
+		points: 10,
 		type: 'project'
 	});
 
-	// DYNAMIC SLIDER LOGIC
-	// When User changes the "Tier", snap the points to the middle of that tier.
+	// PILLAR ORDER (Locked Requirement)
+	const PILLARS = ['love', 'health', 'freedom'];
+
+	// TIER HANDLER
 	const handleTierChange = (newTierId) => {
 		const tier = SCORING_TIERS.find(t => t.id === newTierId);
 		setNewItem({
 			...newItem,
 			tierId: newTierId,
-			points: Math.round((tier.min + tier.max) / 2) // Snap to median
+			points: Math.round((tier.min + tier.max) / 2)
 		});
+	};
+
+	// CATEGORY TOGGLE HANDLER (Multi-Select Logic)
+	const toggleCategory = (cat) => {
+		const current = newItem.categories;
+		if (current.includes(cat)) {
+			// Prevent removing the last category (must have at least one)
+			if (current.length > 1) {
+				setNewItem({ ...newItem, categories: current.filter(c => c !== cat) });
+			}
+		} else {
+			setNewItem({ ...newItem, categories: [...current, cat] });
+		}
 	};
 
 	// Helper to get current tier object
 	const currentTier = SCORING_TIERS.find(t => t.id === newItem.tierId);
+
+	// CALCULATION: Split Points Logic
+	const splitPoints = Math.floor(newItem.points / newItem.categories.length * 10) / 10;
 
 	const handleAddItem = () => {
 		if (!newItem.label) return;
 		const item = {
 			id: Date.now().toString(),
 			...newItem,
+			// For backward compatibility, primary category is first in list
+			category: newItem.categories[0],
 			status: 'active'
 		};
 		setLibrary([item, ...library]);
-		setNewItem({ ...newItem, label: '' }); // Reset Label only
+		setNewItem({ ...newItem, label: '' });
 	};
 
 	return (
@@ -92,32 +110,48 @@ const Library = () => {
 								type="text"
 								value={newItem.label}
 								onChange={(e) => setNewItem({...newItem, label: e.target.value})}
-								placeholder="e.g. Morning Prayer Sequence"
+								placeholder="e.g. Morning Walk with Spouse"
 								className="w-full bg-[#0B1120] border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-blue-500 focus:outline-none transition-colors shadow-inner"
 							/>
 						</div>
 
-						{/* 2. PILLAR ALIGNMENT */}
+						{/* 2. PILLAR ALIGNMENT (MULTI-SELECT) */}
 						<div className="mb-5">
-							<label className="block text-[10px] uppercase font-bold text-slate-500 mb-2">Pillar Alignment</label>
+							<label className="block text-[10px] uppercase font-bold text-slate-500 mb-2">Pillar Alignment (Multi-Select)</label>
 							<div className="grid grid-cols-3 gap-2">
-								{['health', 'freedom', 'love'].map(cat => (
-									<button
-										key={cat}
-										onClick={() => setNewItem({...newItem, category: cat})}
-										className={`p-2 rounded-lg border text-xs font-bold uppercase transition-all ${
-											newItem.category === cat
-											? `border-${cat === 'love' ? 'rose' : cat === 'health' ? 'cyan' : 'amber'}-500 bg-${cat === 'love' ? 'rose' : cat === 'health' ? 'cyan' : 'amber'}-500/10 text-white shadow-lg`
-											: 'border-slate-700 text-slate-500 hover:border-slate-600 bg-[#0B1120]'
-										}`}
-									>
-										{cat}
-									</button>
+								{PILLARS.map(cat => {
+									const isActive = newItem.categories.includes(cat);
+									let activeColor = '';
+									if (cat === 'love') activeColor = 'border-rose-500 bg-rose-500/10 text-rose-400';
+									if (cat === 'health') activeColor = 'border-cyan-500 bg-cyan-500/10 text-cyan-400';
+									if (cat === 'freedom') activeColor = 'border-amber-500 bg-amber-500/10 text-amber-400';
+
+									return (
+										<button
+											key={cat}
+											onClick={() => toggleCategory(cat)}
+											className={`relative p-2 rounded-lg border text-xs font-bold uppercase transition-all duration-200 ${
+												isActive
+												? `${activeColor} shadow-[0_0_10px_rgba(0,0,0,0.3)]`
+												: 'border-slate-700 text-slate-600 bg-[#0B1120] hover:border-slate-500'
+											}`}
+										>
+											{cat}
+											{isActive && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-current shadow-sm"></div>}
+										</button>
+									);
+								})}
+							</div>
+							<div className="mt-2 flex flex-wrap gap-2">
+								{newItem.categories.length > 1 && newItem.categories.map(cat => (
+									<span key={cat} className="text-[9px] font-mono text-slate-500 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+										{splitPoints} PV to {cat.toUpperCase()}
+									</span>
 								))}
 							</div>
 						</div>
 
-						{/* 3. STRUCTURAL TIER (The Core Upgrade) */}
+						{/* 3. STRUCTURAL TIER */}
 						<div className="mb-6">
 							<label className="block text-[10px] uppercase font-bold text-slate-500 mb-2 flex items-center gap-2">
 								<Layers size={12} /> Structural Classification
@@ -195,15 +229,19 @@ const Library = () => {
 							<div key={item.id} className="group p-4 rounded-xl border border-slate-800 bg-[#0f1522] hover:border-slate-700 transition-all flex justify-between items-center">
 								<div>
 									<div className="font-medium text-slate-200 text-sm">{item.label}</div>
-									<div className="flex items-center gap-2 mt-1">
-										<span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-											item.category === 'health' ? 'text-cyan-400 bg-cyan-950/30' :
-											item.category === 'freedom' ? 'text-amber-400 bg-amber-950/30' :
-											'text-rose-400 bg-rose-950/30'
-										}`}>
-											{item.category}
-										</span>
-										<span className="text-[10px] text-slate-600 font-bold">{item.points} PV</span>
+
+									{/* NEW: Multi-Category Display */}
+									<div className="flex items-center gap-2 mt-1 flex-wrap">
+										{(item.categories || [item.category]).map(cat => (
+											<span key={cat} className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+												cat === 'health' ? 'text-cyan-400 bg-cyan-950/30' :
+												cat === 'freedom' ? 'text-amber-400 bg-amber-950/30' :
+												'text-rose-400 bg-rose-950/30'
+											}`}>
+												{cat}
+											</span>
+										))}
+										<span className="text-[10px] text-slate-600 font-bold">• {item.points} PV</span>
 									</div>
 								</div>
 								<button className="opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-red-400 transition-all">
