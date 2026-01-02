@@ -27,17 +27,15 @@ const PRAYER_LINES = [
 
 // Helper: Highlights specific words with a "Glowing" effect
 const HighlightedText = ({ text }) => {
-    // Escape special regex characters just in case
     const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const pattern = new RegExp(`\\b(${KEYWORDS_TO_HIGHLIGHT.map(escapeRegExp).join('|')})\\b`, 'gi');
-
     const parts = text.split(pattern);
 
     return (
         <span>
             {parts.map((part, i) =>
                 KEYWORDS_TO_HIGHLIGHT.some(k => k.toLowerCase() === part.toLowerCase()) ? (
-                    <span key={i} className="text-cyan-400 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)] transition-all duration-500 hover:text-cyan-300">
+                    <span key={i} className="text-cyan-400 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">
                         {part}
                     </span>
                 ) : (
@@ -81,41 +79,54 @@ const GuardianGreeting = ({ onComplete }) => {
     if (step === 1) return (
         <div className={`fixed inset-0 z-50 bg-[#050914] flex items-center justify-center p-4 transition-opacity duration-700 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 
-            <div className="max-w-4xl w-full flex flex-col h-full md:h-auto max-h-[95vh]">
+            <div className="max-w-4xl w-full flex flex-col h-[90vh] md:h-[85vh]">
 
-                {/* Header Badge */}
-                <div className="text-center mb-8 flex-none">
+                {/* 1. SYSTEM LABEL (The Badge) */}
+                <div className="text-center mb-6 flex-none">
                     <div className="inline-flex items-center gap-2 bg-blue-900/20 border border-blue-500/30 px-4 py-1.5 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.3)] backdrop-blur-md">
-                        <Sun size={14} className="text-blue-400 animate-pulse" />
+                        <Sun size={14} className="text-blue-400" />
                         <span className="text-blue-300 text-xs font-bold uppercase tracking-[0.2em]">The Architect's Ignition</span>
                     </div>
                 </div>
 
-                {/* The Manifest Container */}
-                <div className="flex-1 min-h-0 mb-10 relative group">
-                    {/* Atmospheric Glow Behind */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[60%] bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
+                {/* 2. MAIN CONTENT CARD (Flex Container) */}
+                <div className="flex-1 min-h-0 mb-8 relative bg-[#0f1522]/50 border border-slate-800 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
 
-                    <div className="relative h-full overflow-y-auto custom-scrollbar px-4 md:px-12 text-center flex flex-col justify-center space-y-8">
+                    {/* A. CARD TITLE (Morning Prayer) */}
+                    <div className="flex-none p-6 text-center border-b border-slate-800/50 bg-[#0B1120]/80 backdrop-blur-sm relative z-10">
+                        <h1 className="text-3xl font-bold text-white tracking-tight font-serif">Morning Prayer</h1>
+                        <div className="w-24 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent mx-auto mt-4 opacity-50"></div>
+                    </div>
+
+                    {/* B. SCROLLABLE TEXT AREA */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 text-center flex flex-col justify-start items-center space-y-8 relative z-0">
+                        {/* Glow Effect */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] bg-blue-500/5 blur-[80px] rounded-full pointer-events-none"></div>
+
                         {PRAYER_LINES.map((line, i) => (
-                            <p key={i} className="text-base md:text-xl text-slate-300 font-medium leading-relaxed tracking-wide">
+                            <p key={i} className="text-lg md:text-xl text-slate-300 font-medium leading-loose tracking-wide max-w-3xl relative z-10">
                                 <HighlightedText text={line} />
                             </p>
                         ))}
+                        {/* Bottom Spacer to ensure text clears fade */}
+                        <div className="h-8 shrink-0"></div>
                     </div>
+
+                    {/* Bottom Fade Gradient (Visual Polish) */}
+                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0f1522] to-transparent pointer-events-none z-10"></div>
                 </div>
 
-                {/* Pulsating Action Button */}
-                <div className="flex-none text-center pb-8">
+                {/* 3. FOOTER BUTTON (Fixed position relative to flex column, no overlap) */}
+                <div className="flex-none text-center">
                     <button
                         onClick={handleNext}
-                        className="relative group bg-blue-600 hover:bg-blue-500 text-white px-10 py-5 rounded-2xl font-bold tracking-[0.15em] uppercase transition-all shadow-[0_0_40px_rgba(37,99,235,0.4)] hover:shadow-[0_0_60px_rgba(37,99,235,0.6)] hover:scale-105 active:scale-95"
+                        className="relative group bg-blue-600 hover:bg-blue-500 text-white px-12 py-4 rounded-full font-bold tracking-[0.15em] uppercase transition-all shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:shadow-[0_0_50px_rgba(37,99,235,0.6)] hover:scale-105 active:scale-95"
                     >
                         <span className="flex items-center gap-3">
-                            I Am Aligned <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                            I Am Aligned <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                         </span>
-                        {/* Ping Effect Ring */}
-                        <span className="absolute -inset-1 rounded-2xl border border-blue-400/50 opacity-0 group-hover:opacity-100 animate-ping pointer-events-none"></span>
+                        {/* Pulsating Ring */}
+                        <span className="absolute -inset-1 rounded-full border border-blue-400/30 opacity-0 group-hover:opacity-100 animate-ping pointer-events-none"></span>
                     </button>
                 </div>
             </div>
