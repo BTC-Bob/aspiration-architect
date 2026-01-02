@@ -1,21 +1,25 @@
 // src/pages/Dashboard.jsx
 import React, { useState } from 'react';
-import { Shield, Activity, Calendar, Zap, CheckCircle, Clock, Plus, Repeat, CheckSquare } from 'lucide-react';
+import { Shield, Activity, Calendar, Zap, CheckCircle, Clock, Plus, Repeat, CheckSquare, Sun } from 'lucide-react';
 import { MASTER_LIBRARY, PV_TIERS } from '../data/master_library';
 import { getDayNumber, getFormattedDate } from '../utils/dateHelpers';
 import ArcGauge from '../components/ArcGauge';
-import GuardianGreeting from '../components/GuardianGreeting'; // NEW IMPORT
+import GuardianGreeting from '../components/GuardianGreeting';
 
 const Dashboard = () => {
 	const dayNumber = getDayNumber();
 	const currentDate = getFormattedDate();
 
 	// --- GUARDIAN GATE LOGIC ---
-	// Check if the user has completed the "Ignition Sequence" for today
 	const [showGreeting, setShowGreeting] = useState(() => {
 		const hasCheckedIn = localStorage.getItem(`checkin_${currentDate}`);
-		return !hasCheckedIn; // If NO record, Show Greeting
+		return !hasCheckedIn;
 	});
+
+	// HANDLER: Manually re-launch the Morning Prayer
+	const handleManualIgnition = () => {
+		setShowGreeting(true);
+	};
 
 	const getTimeBasedGreeting = () => {
 		const hour = new Date().getHours();
@@ -26,9 +30,9 @@ const Dashboard = () => {
 	};
 	const greeting = getTimeBasedGreeting();
 
-	// 1. FOCUS IDS: Items selected for the day (The Plan)
+	// 1. FOCUS IDS
 	const [focusIds, setFocusIds] = useState([]);
-	// 2. COMPLETED IDS: Items actually finished (The Victory)
+	// 2. COMPLETED IDS
 	const [completedIds, setCompletedIds] = useState([]);
 
 	const addToFocus = (id) => {
@@ -80,7 +84,6 @@ const Dashboard = () => {
 	};
 	const timeBudget = calculateTimeBudget();
 
-	// RECALIBRATED LABELS FOR 4400 PV GOAL
 	const getTierLabel = (score) => {
 		if (score >= 35) return "ZENITH";
 		if (score >= 20) return "NOBLE";
@@ -110,7 +113,6 @@ const Dashboard = () => {
 		<div className="h-screen w-full bg-[#0B1120] text-slate-100 font-sans overflow-hidden flex flex-col relative">
 
 			{/* --- THE GUARDIAN GATE (MODAL) --- */}
-			{/* Blocks interaction until Morning Routine is complete */}
 			{showGreeting && (
 				<GuardianGreeting onComplete={() => setShowGreeting(false)} />
 			)}
@@ -118,9 +120,21 @@ const Dashboard = () => {
 			{/* --- HEADER --- */}
 			<div className="flex-none px-8 py-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 border-b border-slate-800/50 bg-[#0B1120] z-20">
 				<div>
-					<h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-						{greeting}, <span className="text-blue-500">Architect</span>
-					</h1>
+					<div className="flex items-center gap-3">
+						<h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+							{greeting}, <span className="text-blue-500">Architect</span>
+						</h1>
+
+						{/* --- NEW: RE-IGNITION BUTTON --- */}
+						<button
+							onClick={handleManualIgnition}
+							className="p-2 rounded-full bg-slate-800/50 hover:bg-blue-500/20 text-slate-500 hover:text-blue-400 transition-all border border-transparent hover:border-blue-500/30"
+							title="Re-Launch Morning Sequence"
+						>
+							<Sun size={18} />
+						</button>
+					</div>
+
 					<div className="flex items-center gap-2 mt-1 text-slate-400 text-sm font-medium">
 						<span className="bg-slate-800/50 px-2 py-0.5 rounded text-xs border border-slate-700">Day {dayNumber}</span>
 						<span>•</span>
@@ -203,7 +217,7 @@ const Dashboard = () => {
 	);
 };
 
-// SUB-COMPONENT: SWIMLANE
+// SUB-COMPONENT: SWIMLANE (Unchanged)
 const Swimlane = ({ pillar, color, label, gaugeVal, gaugeMax, availableItems, focusItems, completedIds, onAddToFocus, onToggleComplete, icon, gradientFrom, gradientTo }) => {
 	const slots = [0, 1, 2];
 
@@ -215,7 +229,6 @@ const Swimlane = ({ pillar, color, label, gaugeVal, gaugeMax, availableItems, fo
 				gradientFrom={gradientFrom} gradientTo={gradientTo}
 			/>
 
-			{/* FOCUS ZONE */}
 			<div className="flex-none bg-[#0f1522] border border-slate-800 rounded-2xl p-4 flex flex-col gap-3 shadow-lg">
 				<div className="flex items-center justify-between pb-2 border-b border-slate-800/50">
 					<h3 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
@@ -271,7 +284,6 @@ const Swimlane = ({ pillar, color, label, gaugeVal, gaugeMax, availableItems, fo
 				</div>
 			</div>
 
-			{/* LIBRARY LIST */}
 			<div className="flex-1 min-h-0 bg-[#0B1120] border border-slate-800/50 rounded-2xl p-4 flex flex-col overflow-hidden">
 				<div className="flex items-center justify-between pb-3">
 					<span className="text-[10px] font-bold text-slate-500 uppercase">Available Protocols</span>
