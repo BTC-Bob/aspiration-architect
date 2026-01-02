@@ -4,7 +4,7 @@ import { generateMockHistory } from '../utils/mockHistory';
 import { Calendar, TrendingUp, Activity, Moon, Scale, Trophy, ChevronRight } from 'lucide-react';
 
 const History = () => {
-    // 1. Load Data (In production, this would fetch from Database)
+    // 1. Load Data
     const historyData = useMemo(() => generateMockHistory(), []);
     const [selectedDay, setSelectedDay] = useState(historyData[historyData.length - 1]);
 
@@ -48,7 +48,6 @@ const History = () => {
                                 className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-1000"
                                 style={{ width: `${progressPct}%` }}
                             ></div>
-                            {/* Marker for "Today's Expected Pace" could go here */}
                         </div>
                         <div className="flex justify-between mt-2">
                             <span className="text-[10px] text-slate-500 font-mono">PACE: {avgPV} PV/DAY</span>
@@ -99,23 +98,20 @@ const History = () => {
                                 </h3>
                                 <span className="text-xs font-mono text-slate-400">90 Day Moving Avg</span>
                             </div>
-                            {/* CUSTOM SVG LINE CHART */}
                             <div className="h-40 w-full relative">
                                 <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                                    {/* Generate Line Path */}
                                     <polyline
                                         fill="none"
                                         stroke="#3b82f6"
                                         strokeWidth="3"
                                         points={historyData.map((d, i) => {
-                                            const x = (i / (historyData.length - 1)) * 100; // % width
-                                            const y = 100 - ((d.weight - 200) / (220 - 200)) * 100; // Normalize 200-220lbs range
-                                            return `${x * 8},${y * 1.5}`; // Approximate scaling for SVG
+                                            const x = (i / (historyData.length - 1)) * 100;
+                                            const y = 100 - ((d.weight - 200) / (220 - 200)) * 100;
+                                            return `${x * 8},${y * 1.5}`;
                                         }).join(' ')}
                                         vectorEffect="non-scaling-stroke"
                                     />
                                 </svg>
-                                {/* Grid Lines (Visual only) */}
                                 <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
                                     <div className="border-t border-slate-500 w-full h-0"></div>
                                     <div className="border-t border-slate-500 w-full h-0"></div>
@@ -139,7 +135,6 @@ const History = () => {
                                     <div className="w-2 h-2 rounded-full bg-rose-500"></div> <span className="text-[10px] text-slate-400">&lt;60%</span>
                                 </div>
                             </div>
-                            {/* CSS BAR CHART */}
                             <div className="h-24 flex items-end gap-[2px]">
                                 {historyData.map((d, i) => (
                                     <div
@@ -154,7 +149,7 @@ const History = () => {
 
                     </div>
 
-                    {/* ZONE D: SELECTED DAY ARCHIVE (The Inspector) */}
+                    {/* ZONE D: SELECTED DAY ARCHIVE */}
                     <div className="lg:col-span-1">
                         <div className="sticky top-0 bg-[#1A2435] border border-slate-700 rounded-2xl p-6 shadow-2xl">
                             <div className="text-center pb-6 border-b border-slate-600/50">
@@ -166,7 +161,6 @@ const History = () => {
                             </div>
 
                             <div className="py-6 space-y-4">
-                                {/* METRICS GRID */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="bg-[#0B1120] p-3 rounded-xl border border-slate-700 text-center">
                                         <div className="text-[10px] text-slate-500 uppercase font-bold">Weight</div>
@@ -186,7 +180,6 @@ const History = () => {
                                     </div>
                                 </div>
 
-                                {/* TASK SNAPSHOTS */}
                                 <div className="mt-6">
                                     <h4 className="text-[10px] font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
                                         <Activity size={12} /> Protocol Log
