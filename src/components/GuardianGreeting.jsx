@@ -4,7 +4,8 @@ import { Sun, Scale, Activity, Eye, CheckCircle, ArrowRight, Heart } from 'lucid
 import { getFormattedDate } from '../utils/dateHelpers';
 
 // PRE-DEFINED MORNING PRAYER
-// Source: ASPIRATION-ARCHITECT-v0.02.docx
+[cite_start]// Source: ASPIRATION-ARCHITECT-v0.02.docx [cite: 1]
+// NOTE: Text remains fully intact.
 const PRAYER_TEXT = [
     "As the new day begins, I embrace the opportunity to design a purposeful and fulfilling day.",
     "With each morning, I am reminded that every action contributes to the blueprint of my year.",
@@ -12,7 +13,7 @@ const PRAYER_TEXT = [
     "I recognize each decision as a foundational stone in the structure of my year.",
     "I approach my ambitions with dedication and resilience, celebrating both small steps and significant milestones.",
     "In every interaction, I aim to make positive impacts, seeing each as a chance to contribute to my overarching vision.",
-    "May this day reflect my journey towards a year of growth, fulfillment, and purpose."
+    "May this day reflect my journey towards a year of growth, fulfillment, and purpose, aligning my daily efforts with my vision for the future."
 ];
 
 const GuardianGreeting = ({ onComplete }) => {
@@ -39,41 +40,60 @@ const GuardianGreeting = ({ onComplete }) => {
 
     // COMPLETION HANDLER
     const handleFinish = () => {
-        // 1. Log Data (Placeholder for future Database integration)
         console.log("Ignition Data Logged:", data);
-
-        // 2. Mark "Today" as Checked-In in Browser Memory
         const today = getFormattedDate();
         localStorage.setItem(`checkin_${today}`, 'true');
-
-        // 3. Unlock Dashboard
         setFade(false);
         setTimeout(onComplete, 500);
     };
 
     // --- STEP 1: ALIGNMENT (The Prayer) ---
     if (step === 1) return (
-        <div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="max-w-3xl w-full text-center flex flex-col h-[90vh] md:h-auto justify-center">
-                <div className="w-16 h-16 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center mb-8 border border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.2)]">
-                    <Sun size={32} className="text-blue-400" />
-                </div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white mb-8 tracking-tight">The Architect's Ignition</h1>
+        <div className={`fixed inset-0 z-50 bg-[#0B1120]/95 backdrop-blur-sm flex items-center justify-center p-4 md:p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="max-w-3xl w-full flex flex-col h-full md:h-auto max-h-[95vh] justify-center">
 
-                <div className="space-y-4 mb-12 overflow-y-auto custom-scrollbar px-4 max-h-[50vh] md:max-h-none text-left md:text-center">
-                    {PRAYER_TEXT.map((line, i) => (
-                        <p key={i} className="text-base md:text-lg text-slate-300 font-medium leading-relaxed max-w-2xl mx-auto">
-                            "{line}"
-                        </p>
-                    ))}
+                {/* Header Icon & Title */}
+                <div className="text-center mb-6 md:mb-8 flex-none">
+                    <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full text-blue-400 text-xs font-bold uppercase tracking-wider mb-4 shadow-[0_0_20px_rgba(59,130,246,0.15)]">
+                        <Sun size={14} /> Step 1 of 3: Mindset Alignment
+                    </div>
+                    <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">The Architect's Ignition</h1>
                 </div>
 
-                <button
-                    onClick={handleNext}
-                    className="group bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-bold tracking-widest uppercase transition-all flex items-center gap-3 mx-auto shadow-lg shadow-blue-900/30"
-                >
-                    I Am Aligned <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                </button>
+                {/* The Manifest Container (Creative Enhancement) */}
+                <div className="flex-1 min-h-0 mb-8 relative group">
+                    {/* glowing backdrop effect */}
+                    <div className="absolute -inset-1 bg-gradient-to-b from-blue-500/20 to-indigo-500/5 rounded-3xl blur-xl opacity-50 group-hover:opacity-75 transition-opacity duration-500"></div>
+
+                    {/* Main Content Box */}
+                    <div className="relative h-full bg-[#1A2435]/80 border border-blue-500/20 rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden flex flex-col">
+                        {/* Subtle Blueprint Grid Pattern Overlay */}
+                        <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+
+                        {/* Scrollable Text Area */}
+                        <div className="overflow-y-auto custom-scrollbar pr-2 flex-1">
+                            <div className="space-y-4 text-left">
+                                {PRAYER_TEXT.map((line, i) => (
+                                    <p key={i} className="text-sm md:text-base text-slate-200 font-medium leading-loose">
+                                        {line}
+                                    </p>
+                                ))}
+                            </div>
+                        </div>
+                         {/* Bottom fade aesthetic */}
+                        <div className="h-8 bg-gradient-to-t from-[#1A2435] to-transparent absolute bottom-0 left-0 right-0 pointer-events-none"></div>
+                    </div>
+                </div>
+
+                {/* Action Button */}
+                <div className="flex-none text-center">
+                    <button
+                        onClick={handleNext}
+                        className="group bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-bold tracking-widest uppercase transition-all flex items-center gap-3 mx-auto shadow-lg shadow-blue-900/30 active:scale-[0.98]"
+                    >
+                        I Am Aligned <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -85,9 +105,12 @@ const GuardianGreeting = ({ onComplete }) => {
                 {/* Background Accent */}
                 <div className="absolute top-0 right-0 p-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
 
-                <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3 relative z-10">
-                    <Activity size={20} className="text-blue-400" /> Physiology Check
-                </h2>
+                <div className="mb-6 flex items-center justify-between relative z-10">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                        <Activity size={20} className="text-blue-400" /> Physiology Check
+                    </h2>
+                    <span className="text-xs font-bold text-slate-500 uppercase">Step 2 of 3</span>
+                </div>
 
                 <div className="space-y-6 relative z-10">
                     {/* SLEEP */}
@@ -138,9 +161,12 @@ const GuardianGreeting = ({ onComplete }) => {
             <div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-32 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
 
-                <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3 relative z-10">
-                    <Scale size={20} className="text-emerald-400" /> Vitality & Integrity
-                </h2>
+                <div className="mb-6 flex items-center justify-between relative z-10">
+                     <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                        <Scale size={20} className="text-emerald-400" /> Vitality & Integrity
+                    </h2>
+                    <span className="text-xs font-bold text-slate-500 uppercase">Step 3 of 3</span>
+                </div>
 
                 <div className="space-y-8 relative z-10">
                     {/* BLOOD PRESSURE */}
