@@ -1,168 +1,220 @@
-import React, { useMemo } from 'react';
-import { Calendar, TrendingUp, Award, Activity, ArrowUpRight } from 'lucide-react';
-import useLocalStorage from '../hooks/useLocalStorage';
+// src/pages/History.jsx
+import React, { useState, useMemo } from 'react';
+import { generateMockHistory } from '../utils/mockHistory';
+import { Calendar, TrendingUp, Activity, Moon, Scale, Trophy, ChevronRight } from 'lucide-react';
 
-function History() {
-	// --- MEMORY CORE LINK ---
-	// We read the LIVE tasks to get today's real score
-	const [tasks] = useLocalStorage('guardian_tasks', []);
+const History = () => {
+    // 1. Load Data (In production, this would fetch from Database)
+    const historyData = useMemo(() => generateMockHistory(), []);
+    const [selectedDay, setSelectedDay] = useState(historyData[historyData.length - 1]);
 
-	// --- LOGIC ENGINE ---
-	const historyData = useMemo(() => {
-		// 1. Calculate TODAY'S Real Score
-		const todayScore = tasks.reduce((acc, task) =>
-			task.completed ? acc + task.points : acc, 0
-		);
+    // 2. Calculate Aggregate Stats
+    const totalPV = historyData.reduce((acc, day) => acc + day.pv, 0);
+    const annualGoal = 4400;
+    const progressPct = (totalPV / annualGoal) * 100;
+    const avgPV = (totalPV / historyData.length).toFixed(1);
 
-		// 2. Generate "Ghost Data" for the previous 6 days (Simulation)
-		// In the future, this would come from a real database
-		const pastDays = [
-			{ day: 'Tue', score: 35, label: 'Dec 23' },
-			{ day: 'Wed', score: 42, label: 'Dec 24' },
-			{ day: 'Thu', score: 28, label: 'Dec 25' },
-			{ day: 'Fri', score: 55, label: 'Dec 26' }, // High score
-			{ day: 'Sat', score: 48, label: 'Dec 27' },
-			{ day: 'Sun', score: 30, label: 'Dec 28' },
-		];
+    // 3. Helper for Heatmap Colors
+    const getHeatmapColor = (pv) => {
+        if (pv === 0) return 'bg-slate-800';
+        if (pv < 5) return 'bg-blue-900';
+        if (pv < 12) return 'bg-blue-700';
+        if (pv < 20) return 'bg-cyan-600';
+        return 'bg-amber-500'; // ZENITH
+    };
 
-		// 3. Combine for the 7-Day Chart
-		return [
-			...pastDays,
-			{ day: 'Today', score: todayScore, label: 'Dec 29', isToday: true }
-		];
-	}, [tasks]);
+    return (
+        <div className="h-screen w-full bg-[#0B1120] text-slate-100 font-sans overflow-hidden flex flex-col">
 
-	// Calculate Average
-	const averageScore = Math.round(
-		historyData.reduce((acc, d) => acc + d.score, 0) / historyData.length
-	);
+            {/* --- HEADER: THE SCORECARD --- */}
+            <div className="flex-none p-8 border-b border-slate-800 bg-[#0B1120] z-10">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div>
+                        <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+                            <Trophy size={28} className="text-amber-500" />
+                            The Vault
+                        </h1>
+                        <p className="text-slate-400 text-sm mt-1">Performance Archive & Biometric Trends</p>
+                    </div>
 
-	return (
-		<div className="w-full h-full flex flex-col space-y-8">
+                    {/* MACRO PROGRESS BAR */}
+                    <div className="flex-1 max-w-2xl">
+                        <div className="flex justify-between text-xs font-bold uppercase tracking-widest mb-2">
+                            <span className="text-blue-400">Annual Progression</span>
+                            <span className="text-white">{totalPV.toLocaleString()} / {annualGoal.toLocaleString()} PV</span>
+                        </div>
+                        <div className="h-4 bg-slate-800 rounded-full overflow-hidden relative border border-slate-700">
+                            <div
+                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-1000"
+                                style={{ width: `${progressPct}%` }}
+                            ></div>
+                            {/* Marker for "Today's Expected Pace" could go here */}
+                        </div>
+                        <div className="flex justify-between mt-2">
+                            <span className="text-[10px] text-slate-500 font-mono">PACE: {avgPV} PV/DAY</span>
+                            <span className="text-[10px] text-emerald-400 font-bold">{(progressPct).toFixed(1)}% COMPLETE</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-			{/* --- HEADER --- */}
-			<div className="border-b border-slate-800 pb-6 shrink-0">
-				<h1 className="text-3xl font-bold text-white tracking-tight drop-shadow-md">Protocol History</h1>
-				<p className="text-slate-400 mt-1">Performance metrics and longitudinal analysis.</p>
-			</div>
+            {/* --- MAIN CONTENT: SCROLLABLE --- */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
 
-			{/* --- STATS ROW --- */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
-				{/* Average Card - Color Correction: #0f1522 */}
-				<div className="bg-[#0f1522] p-5 rounded-2xl border border-slate-800 flex items-center space-x-4 shadow-lg">
-					<div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-						<Activity size={24} />
-					</div>
-					<div>
-						<p className="text-slate-400 text-xs uppercase font-bold tracking-wider">7-Day Average</p>
-						<p className="text-2xl font-bold text-white">{averageScore} PV</p>
-					</div>
-				</div>
+                {/* ZONE B: HEATMAP (The Grid) */}
+                <div className="mb-10">
+                    <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Calendar size={16} /> Consistency Heatmap (Last 90 Days)
+                    </h2>
+                    {/* CSS GRID FOR HEATMAP */}
+                    <div className="flex flex-wrap gap-1">
+                        {historyData.map((day, i) => (
+                            <div
+                                key={i}
+                                onClick={() => setSelectedDay(day)}
+                                className={`w-3 h-3 md:w-4 md:h-4 rounded-sm cursor-pointer hover:ring-2 hover:ring-white transition-all ${getHeatmapColor(day.pv)} ${selectedDay.date === day.date ? 'ring-2 ring-white z-10 scale-110' : 'opacity-80 hover:opacity-100'}`}
+                                title={`${day.date}: ${day.pv} PV`}
+                            ></div>
+                        ))}
+                    </div>
+                    {/* LEGEND */}
+                    <div className="flex items-center gap-4 mt-3 text-[10px] text-slate-500 font-bold uppercase">
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-slate-800 rounded-sm"></div> Rest</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-blue-900 rounded-sm"></div> Fair</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-cyan-600 rounded-sm"></div> Good</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-amber-500 rounded-sm"></div> Zenith</div>
+                    </div>
+                </div>
 
-				{/* Best Day Card */}
-				<div className="bg-[#0f1522] p-5 rounded-2xl border border-slate-800 flex items-center space-x-4 shadow-lg">
-					<div className="w-12 h-12 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-yellow-400">
-						<Award size={24} />
-					</div>
-					<div>
-						<p className="text-slate-400 text-xs uppercase font-bold tracking-wider">Best Performance</p>
-						<p className="text-2xl font-bold text-white">55 PV <span className="text-xs text-slate-500 font-normal ml-1">Dec 26</span></p>
-					</div>
-				</div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-				{/* Momentum Card */}
-				<div className="bg-[#0f1522] p-5 rounded-2xl border border-slate-800 flex items-center space-x-4 shadow-lg">
-					<div className="w-12 h-12 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-green-400">
-						<TrendingUp size={24} />
-					</div>
-					<div>
-						<p className="text-slate-400 text-xs uppercase font-bold tracking-wider">Momentum</p>
-						<div className="flex items-center text-green-400 font-bold">
-							<span className="text-2xl">Stable</span>
-							<ArrowUpRight size={16} className="ml-2" />
-						</div>
-					</div>
-				</div>
-			</div>
+                    {/* ZONE C: CHARTS (Weight & Sleep) */}
+                    <div className="lg:col-span-2 space-y-8">
 
-			{/* --- MAIN CHART: THE WEEKLY PULSE --- */}
-			{/* Background Alignment: #0f1522 */}
-			<div className="flex-1 bg-[#0f1522] rounded-2xl border border-slate-800 p-8 flex flex-col relative overflow-hidden shadow-2xl">
-				<div className="flex justify-between items-center mb-8">
-					<h3 className="text-lg font-bold text-white flex items-center">
-						<Calendar size={18} className="mr-2 text-slate-400" />
-						Weekly Cadence
-					</h3>
-					<div className="flex items-center space-x-4 text-xs">
-						<div className="flex items-center text-slate-400">
-							<span className="w-2 h-2 rounded-full bg-slate-700 mr-2" />
-							Routine
-						</div>
-						<div className="flex items-center text-white">
-							<span className="w-2 h-2 rounded-full bg-blue-500 mr-2 shadow-[0_0_8px_#3b82f6]" />
-							High Performance
-						</div>
-						<div className="flex items-center text-green-400">
-							<span className="w-2 h-2 rounded-full bg-green-500 mr-2 shadow-[0_0_8px_#22c55e]" />
-							Target (50+)
-						</div>
-					</div>
-				</div>
+                        {/* CHART 1: WEIGHT TREND */}
+                        <div className="bg-[#0f1522] border border-slate-800 rounded-2xl p-6 shadow-lg">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                    <Scale size={16} className="text-blue-400" /> Weight Trend
+                                </h3>
+                                <span className="text-xs font-mono text-slate-400">90 Day Moving Avg</span>
+                            </div>
+                            {/* CUSTOM SVG LINE CHART */}
+                            <div className="h-40 w-full relative">
+                                <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                    {/* Generate Line Path */}
+                                    <polyline
+                                        fill="none"
+                                        stroke="#3b82f6"
+                                        strokeWidth="3"
+                                        points={historyData.map((d, i) => {
+                                            const x = (i / (historyData.length - 1)) * 100; // % width
+                                            const y = 100 - ((d.weight - 200) / (220 - 200)) * 100; // Normalize 200-220lbs range
+                                            return `${x * 8},${y * 1.5}`; // Approximate scaling for SVG
+                                        }).join(' ')}
+                                        vectorEffect="non-scaling-stroke"
+                                    />
+                                </svg>
+                                {/* Grid Lines (Visual only) */}
+                                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+                                    <div className="border-t border-slate-500 w-full h-0"></div>
+                                    <div className="border-t border-slate-500 w-full h-0"></div>
+                                    <div className="border-t border-slate-500 w-full h-0"></div>
+                                </div>
+                            </div>
+                            <div className="flex justify-between mt-2 text-[10px] text-slate-500 font-mono">
+                                <span>START: {historyData[0].weight} lbs</span>
+                                <span>CURRENT: {historyData[historyData.length-1].weight} lbs</span>
+                            </div>
+                        </div>
 
-				{/* CSS BAR CHART */}
-				<div className="flex-1 flex items-end justify-between space-x-2 md:space-x-6 px-4">
-					{historyData.map((data, index) => {
-						// Logic for bar color/height
-						const height = Math.min((data.score / 60) * 100, 100); // Cap at 100% height
-						const isTargetMet = data.score >= 50;
+                        {/* CHART 2: SLEEP QUALITY */}
+                        <div className="bg-[#0f1522] border border-slate-800 rounded-2xl p-6 shadow-lg">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                    <Moon size={16} className="text-indigo-400" /> Sleep Performance
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div> <span className="text-[10px] text-slate-400">80%+</span>
+                                    <div className="w-2 h-2 rounded-full bg-rose-500"></div> <span className="text-[10px] text-slate-400">&lt;60%</span>
+                                </div>
+                            </div>
+                            {/* CSS BAR CHART */}
+                            <div className="h-24 flex items-end gap-[2px]">
+                                {historyData.map((d, i) => (
+                                    <div
+                                        key={i}
+                                        className={`flex-1 rounded-t-sm transition-all hover:opacity-100 ${d.sleep >= 80 ? 'bg-emerald-500/80' : d.sleep >= 60 ? 'bg-indigo-500/50' : 'bg-rose-500/50'}`}
+                                        style={{ height: `${d.sleep}%` }}
+                                        title={`${d.date}: ${d.sleep}%`}
+                                    ></div>
+                                ))}
+                            </div>
+                        </div>
 
-						return (
-							<div key={index} className="flex-1 flex flex-col items-center group relative">
-								{/* Tooltip */}
-								<div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs py-1 px-2 rounded border border-slate-600 mb-2 pointer-events-none whitespace-nowrap z-10">
-									{data.score} Points
-								</div>
+                    </div>
 
-								{/* The Bar */}
-								<div className="w-full bg-slate-800/20 rounded-t-lg relative h-full flex items-end overflow-hidden group-hover:bg-slate-800/40 transition-colors">
-									{/* Target Line (Background) */}
-									<div className="absolute bottom-[83%] w-full h-[1px] bg-slate-700 border-t border-dashed border-slate-600 opacity-50" title="Target Line"></div>
+                    {/* ZONE D: SELECTED DAY ARCHIVE (The Inspector) */}
+                    <div className="lg:col-span-1">
+                        <div className="sticky top-0 bg-[#1A2435] border border-slate-700 rounded-2xl p-6 shadow-2xl">
+                            <div className="text-center pb-6 border-b border-slate-600/50">
+                                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">SELECTED ARCHIVE</div>
+                                <h2 className="text-2xl font-bold text-white">{selectedDay.day}</h2>
+                                <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold mt-2 ${getHeatmapColor(selectedDay.pv).replace('bg-', 'bg-').replace('800', '700')} text-white`}>
+                                    {selectedDay.pv} PV EARNED
+                                </div>
+                            </div>
 
-									{/* Fill */}
-									<div
-										style={{ height: `${height}%` }}
-										className={`
-											w-full rounded-t-lg transition-all duration-1000 ease-out relative
-											${data.isToday
-												? (isTargetMet ? 'bg-green-500 shadow-[0_0_20px_#22c55e]' : 'bg-blue-500 shadow-[0_0_20px_#3b82f6]')
-												: (isTargetMet ? 'bg-green-500/80' : 'bg-slate-700')
-											}
-										`}
-									>
-										{/* Scanline Effect */}
-										{data.isToday && (
-											<div className="absolute top-0 left-0 right-0 h-[1px] bg-white/50 animate-pulse shadow-[0_0_10px_white]"></div>
-										)}
-									</div>
-								</div>
+                            <div className="py-6 space-y-4">
+                                {/* METRICS GRID */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-[#0B1120] p-3 rounded-xl border border-slate-700 text-center">
+                                        <div className="text-[10px] text-slate-500 uppercase font-bold">Weight</div>
+                                        <div className="text-lg font-mono text-white">{selectedDay.weight}</div>
+                                    </div>
+                                    <div className="bg-[#0B1120] p-3 rounded-xl border border-slate-700 text-center">
+                                        <div className="text-[10px] text-slate-500 uppercase font-bold">Sleep</div>
+                                        <div className={`text-lg font-mono ${selectedDay.sleep > 80 ? 'text-emerald-400' : 'text-rose-400'}`}>{selectedDay.sleep}%</div>
+                                    </div>
+                                    <div className="bg-[#0B1120] p-3 rounded-xl border border-slate-700 text-center">
+                                        <div className="text-[10px] text-slate-500 uppercase font-bold">Dig. Sunset</div>
+                                        <div className={`text-lg font-bold ${selectedDay.digitalSunset ? 'text-indigo-400' : 'text-slate-600'}`}>{selectedDay.digitalSunset ? 'YES' : 'NO'}</div>
+                                    </div>
+                                    <div className="bg-[#0B1120] p-3 rounded-xl border border-slate-700 text-center">
+                                        <div className="text-[10px] text-slate-500 uppercase font-bold">PureView</div>
+                                        <div className={`text-lg font-bold ${selectedDay.pureView ? 'text-emerald-400' : 'text-slate-600'}`}>{selectedDay.pureView ? 'YES' : 'NO'}</div>
+                                    </div>
+                                </div>
 
-								{/* Label */}
-								<div className="mt-4 text-center">
-									<p className={`text-sm font-bold ${data.isToday ? 'text-white' : 'text-slate-500'}`}>{data.day}</p>
-									<p className="text-[10px] text-slate-600 hidden md:block">{data.label}</p>
-								</div>
-							</div>
-						);
-					})}
-				</div>
+                                {/* TASK SNAPSHOTS */}
+                                <div className="mt-6">
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+                                        <Activity size={12} /> Protocol Log
+                                    </h4>
+                                    <div className="space-y-2">
+                                        {selectedDay.tasks.map((task, i) => (
+                                            <div key={i} className="flex items-center gap-3 text-sm text-slate-300">
+                                                {task.completed ? <CheckCircleIcon size={14} className="text-blue-500" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-600"></div>}
+                                                <span className={task.completed ? 'text-white' : 'text-slate-500 line-through'}>{task.label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
-				{/* Target Line Label */}
-				<div className="absolute left-4 top-[24%] -translate-y-1/2 text-[10px] font-mono text-slate-600 pointer-events-none">
-					TARGET (50 PV)
-				</div>
-			</div>
-		</div>
-	);
-}
+// Helper Icon Component
+const CheckCircleIcon = ({ size, className }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+    </svg>
+);
 
 export default History;
