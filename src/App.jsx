@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Library from './pages/Library';
 import History from './pages/History';
+import Settings from './pages/Settings'; // <--- IMPORT SETTINGS PAGE
 import { APP_NAME, APP_VERSION } from './config';
 
 const App = () => {
@@ -25,7 +26,7 @@ const App = () => {
 						<Route path="/library"   element={<Library />} />
 						<Route path="/history"   element={<History />} />
 						<Route path="/journal"   element={<div className="p-10 text-slate-500">Journal Module Coming Soon...</div>} />
-						<Route path="/settings"  element={<div className="p-10 text-slate-500">Settings Module Coming Soon...</div>} />
+						<Route path="/settings"  element={<Settings />} /> {/* <--- CONNECTED ROUTE */}
 					</Routes>
 				</main>
 			</div>
