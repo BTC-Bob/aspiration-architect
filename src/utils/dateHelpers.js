@@ -1,9 +1,9 @@
 // src/utils/dateHelpers.js
-import { EPOCH_START } from '../constants';
+import { EPOCH_START } from '../config'; // <--- FIXED IMPORT PATH
 
 /**
  * Calculates the current Day Number relative to EPOCH_START.
- * Uses strict MM-DD-YYYY parsing from constants.js.
+ * Uses strict MM-DD-YYYY parsing from config/constants.js.
  * * Logic:
  * If Today == EPOCH_START, returns 1.
  * If Today is 1 day after, returns 2.
