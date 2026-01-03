@@ -1,14 +1,21 @@
 // src/pages/Dashboard.jsx
 import React, { useState } from 'react';
 import { Shield, Activity, Calendar, Zap, CheckCircle, Clock, Plus, Repeat, CheckSquare, Sun } from 'lucide-react';
-import { MASTER_LIBRARY, PV_TIERS } from '../data/master_library';
+import { MASTER_LIBRARY } from '../data/master_library';
 import { getDayNumber, getFormattedDate } from '../utils/dateHelpers';
 import ArcGauge from '../components/ArcGauge';
 import GuardianGreeting from '../components/GuardianGreeting';
+// NEW: Import from Control Room to ensure icon consistency
+import { getNavConfig } from '../config';
 
 const Dashboard = () => {
 	const dayNumber = getDayNumber();
 	const currentDate = getFormattedDate();
+
+	// --- CONFIGURATION ---
+	// Fetch the exact icon defined for the Dashboard in navigation.js
+	const pageConfig = getNavConfig('dashboard');
+	const PageIcon = pageConfig?.icon;
 
 	// --- GUARDIAN GATE LOGIC ---
 	const [showGreeting, setShowGreeting] = useState(() => {
@@ -119,29 +126,40 @@ const Dashboard = () => {
 
 			{/* --- HEADER --- */}
 			<div className="flex-none px-8 py-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 border-b border-slate-800/50 bg-[#0B1120] z-20">
-				<div>
-					<div className="flex items-center gap-3">
-						<h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-							{greeting}, <span className="text-blue-500">Architect</span>
-						</h1>
 
-						{/* --- NEW: RE-IGNITION BUTTON --- */}
-						<button
-							onClick={handleManualIgnition}
-							className="p-2 rounded-full bg-slate-800/50 hover:bg-blue-500/20 text-slate-500 hover:text-blue-400 transition-all border border-transparent hover:border-blue-500/30"
-							title="Re-Launch Morning Sequence"
-						>
-							<Sun size={18} />
-						</button>
+				{/* LEFT: ICON + GREETING (STANDARDIZED LAYOUT) */}
+				<div className="flex items-center gap-4">
+					{/* 1. STANDARDIZED ICON CONTAINER */}
+					<div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
+						<PageIcon size={28} className="text-blue-400" />
 					</div>
 
-					<div className="flex items-center gap-2 mt-1 text-slate-400 text-sm font-medium">
-						<span className="bg-slate-800/50 px-2 py-0.5 rounded text-xs border border-slate-700">Day {dayNumber}</span>
-						<span>•</span>
-						<span>{currentDate}</span>
+					{/* 2. TEXT & CONTROLS */}
+					<div>
+						<div className="flex items-center gap-3">
+							<h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+								{greeting}, <span className="text-blue-500">Architect</span>
+							</h1>
+
+							{/* RE-IGNITION BUTTON */}
+							<button
+								onClick={handleManualIgnition}
+								className="p-2 rounded-full bg-slate-800/50 hover:bg-blue-500/20 text-slate-500 hover:text-blue-400 transition-all border border-transparent hover:border-blue-500/30"
+								title="Re-Launch Morning Sequence"
+							>
+								<Sun size={18} />
+							</button>
+						</div>
+
+						<div className="flex items-center gap-2 mt-1 text-slate-400 text-sm font-medium">
+							<span className="bg-slate-800/50 px-2 py-0.5 rounded text-xs border border-slate-700">Day {dayNumber}</span>
+							<span>•</span>
+							<span>{currentDate}</span>
+						</div>
 					</div>
 				</div>
 
+				{/* RIGHT: HUD STATS (Unchanged) */}
 				<div className="flex items-center gap-6">
 					<div className="hidden md:flex flex-col items-end">
 						<div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Est. Focus Time</div>
@@ -173,7 +191,7 @@ const Dashboard = () => {
 				</div>
 			</div>
 
-			{/* --- SWIMLANES --- */}
+			{/* --- SWIMLANES (Unchanged) --- */}
 			<div className="flex-1 min-h-0 p-8 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-y-auto custom-scrollbar">
 
 				<Swimlane
