@@ -1,7 +1,8 @@
 // src/pages/Library.jsx
 import React, { useState } from 'react';
-import { Library as LibraryIcon, Plus, Trash2, Sliders, Layers, Clock, Repeat, CheckSquare, Edit2, X, Save, Zap, Info, Database } from 'lucide-react';
+import { Plus, Trash2, Sliders, Layers, Clock, Repeat, CheckSquare, Edit2, X, Save, Zap, Info, Database } from 'lucide-react';
 import { MASTER_LIBRARY } from '../data/master_library';
+import { getNavConfig } from '../config';
 
 const SCORING_TIERS = [
 	{ id: 'neg',  label: 'Negative Behavior',      quality: 'POOR',        min: -5.0,  max: -0.5,  desc: 'Actions to avoid (e.g., Poor Sleep, Junk Food).' },
@@ -22,6 +23,10 @@ const SCORING_TIERS = [
 const Library = () => {
 	const [library, setLibrary] = useState(MASTER_LIBRARY);
 	const [editingId, setEditingId] = useState(null);
+
+	// GET NAV CONFIG FOR ICON
+	const pageConfig = getNavConfig('library');
+	const PageIcon = pageConfig.icon;
 
 	const [newItem, setNewItem] = useState({
 		label:      '',
@@ -116,7 +121,7 @@ const Library = () => {
 			<div className="flex-none p-6 border-b border-slate-800/50 bg-[#0B1120]">
 				<div className="flex items-center gap-3">
 					<div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-						<LibraryIcon size={24} className="text-blue-400" />
+						<PageIcon size={24} className="text-blue-400" />
 					</div>
 					<div>
 						<h1 className="text-2xl font-bold text-white tracking-tight">The Architect's Ledger</h1>
