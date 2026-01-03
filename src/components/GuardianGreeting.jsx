@@ -1,6 +1,7 @@
 // src/components/GuardianGreeting.jsx
 import React, { useState } from 'react';
-import { Sun, Scale, Activity, Eye, CheckCircle, ArrowRight, Moon, SmartphoneOff } from 'lucide-react';
+// FIX: Removed 'SmartphoneOff' to resolve the White Screen Crash
+import { Sun, Scale, Activity, Eye, CheckCircle, ArrowRight, Moon } from 'lucide-react';
 import { getFormattedDate } from '../utils/dateHelpers';
 
 // --- CONFIGURATION ---
@@ -158,6 +159,7 @@ const GuardianGreeting = ({ onComplete }) => {
                     {/* DIGITAL SUNSET (Replaces BP) */}
                     <div className="bg-[#1A2435]/50 p-4 rounded-2xl border border-slate-700/50">
                         <div className="flex items-start gap-3">
+                            {/* Uses Moon icon as provided in your original logic */}
                             <Moon size={20} className={data.digitalSunsetYesterday === true ? "text-indigo-400" : data.digitalSunsetYesterday === false ? "text-slate-500" : "text-slate-500"} />
                             <div className="flex-1">
                                 <h3 className="text-sm font-bold text-white">Digital Sunset</h3>
