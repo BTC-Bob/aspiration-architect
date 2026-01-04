@@ -7,10 +7,15 @@ import ArcGauge from '../components/ArcGauge';
 import GuardianGreeting from '../components/GuardianGreeting';
 import PageHeader from '../components/PageHeader';
 import { getNavConfig } from '../config';
-// NEW: FIRESTORE IMPORTS
+// FIRESTORE IMPORTS
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../firebase";
+
+// --- DEFAULT MOCK DATA (Safety Net) ---
+const DEFAULT_MOCK_SCHEDULE = [
+	{ id: 1, time: '09:15 AM', title: "Jenda's Dental Appointment" }
+];
 
 const Dashboard = () => {
 	const dayNumber = getDayNumber();
@@ -21,7 +26,8 @@ const Dashboard = () => {
 	const PageIcon = pageConfig?.icon;
 
 	// --- SCHEDULE LOGIC (REAL-TIME CLOUD SYNC) ---
-	const [schedule, setSchedule] = useState([]);
+	// FIX: Initialize with DEFAULT_MOCK_SCHEDULE to prevent crash on first render
+	const [schedule, setSchedule] = useState(DEFAULT_MOCK_SCHEDULE);
 
 	useEffect(() => {
 		// Listen for Auth to establish Firestore Connection
@@ -31,25 +37,20 @@ const Dashboard = () => {
 				const unsubSnapshot = onSnapshot(doc(db, "users", user.uid), (doc) => {
 					if (doc.exists() && doc.data().schedule) {
 						const activeEvents = doc.data().schedule.filter(e => e.title && e.title.trim() !== '');
-						setSchedule(activeEvents.length > 0 ? activeEvents : getDefaultMock());
+						setSchedule(activeEvents.length > 0 ? activeEvents : DEFAULT_MOCK_SCHEDULE);
 					} else {
-						setSchedule(getDefaultMock());
+						setSchedule(DEFAULT_MOCK_SCHEDULE);
 					}
 				});
 				return () => unsubSnapshot();
 			} else {
 				// Fallback if logged out
-				setSchedule(getDefaultMock());
+				setSchedule(DEFAULT_MOCK_SCHEDULE);
 			}
 		});
 
 		return () => unsubscribeAuth();
 	}, []);
-
-	// Default data if nothing in cloud
-	const getDefaultMock = () => [
-		{ id: 1, time: '09:15 AM', title: "Jenda's Dental Appointment" }
-	];
 
 	// LINK HANDLER: Opens Google Calendar to the Specific Day
 	const handleOpenCalendar = () => {
@@ -222,20 +223,23 @@ const Dashboard = () => {
 								</div>
 							) : (
 								/* --- SINGLE EVENT VIEW (LARGE) --- */
-								<>
-									<div className="relative">
-										<div className="w-2 h-2 bg-red-500 rounded-full absolute top-0 right-0 animate-ping"></div>
-										<Calendar size={16} className="text-slate-300 group-hover:text-blue-400 transition-colors" />
-									</div>
-									<div className="flex flex-col leading-none">
-										<span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-											Up Next • {schedule[0].time}
-										</span>
-										<span className="text-xs font-bold text-white group-hover:text-blue-200 transition-colors">
-											{schedule[0].title}
-										</span>
-									</div>
-								</>
+								/* SAFE GUARD: Check if schedule[0] exists before rendering */
+								schedule.length > 0 && (
+									<>
+										<div className="relative">
+											<div className="w-2 h-2 bg-red-500 rounded-full absolute top-0 right-0 animate-ping"></div>
+											<Calendar size={16} className="text-slate-300 group-hover:text-blue-400 transition-colors" />
+										</div>
+										<div className="flex flex-col leading-none">
+											<span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+												Up Next • {schedule[0].time}
+											</span>
+											<span className="text-xs font-bold text-white group-hover:text-blue-200 transition-colors">
+												{schedule[0].title}
+											</span>
+										</div>
+									</>
+								)
 							)}
 						</div>
 
