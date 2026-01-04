@@ -11,32 +11,30 @@ import React from 'react';
  */
 const PageHeader = ({ icon: Icon, title, subtitle, actions }) => {
 	return (
-		<div className="flex-none p-8 border-b border-slate-800 bg-[#0B1120] z-20">
-			<div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+		<div className="flex-none h-24 px-8 border-b border-slate-800 bg-[#0B1120] z-20 flex items-center">
+			<div className="flex-1 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
 
 				{/* LEFT: STANDARD IDENTITY BLOCK */}
 				<div className="flex items-center gap-4">
 
-					{/* 1. THE BORDERED ICON CONTAINER (Immutable Source of Truth) */}
+					{/* 1. THE BORDERED ICON CONTAINER */}
 					<div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 flex-shrink-0">
 						<Icon size={28} className="text-blue-400" />
 					</div>
 
 					{/* 2. TEXT / TITLES */}
 					<div className="flex flex-col justify-center">
-						{/* Title can be a string or a complex component (like the Dashboard Greeting) */}
 						<div className="text-3xl font-bold text-white tracking-tight leading-tight">
 							{title}
 						</div>
 
-						{/* Subtitle logic */}
 						<div className="text-slate-400 text-sm mt-1 font-medium leading-tight">
 							{subtitle}
 						</div>
 					</div>
 				</div>
 
-				{/* RIGHT: DYNAMIC ACTIONS (HUD, Stats, Progress Bars) */}
+				{/* RIGHT: DYNAMIC ACTIONS */}
 				{actions && (
 					<div className="flex items-center gap-6">
 						{actions}

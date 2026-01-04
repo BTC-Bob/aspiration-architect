@@ -11,8 +11,8 @@ const Sidebar = () => {
 	return (
 		<aside className="w-64 bg-[#050914] border-r border-slate-800 flex flex-col z-50">
 
-			{/* LOGO AREA + VERSION CENTERED */}
-			<div className="h-24 flex flex-col items-center justify-center px-6 border-b border-slate-800/50 py-4">
+			{/* LOGO AREA - STRICT HEIGHT h-24 */}
+			<div className="h-24 flex flex-col items-center justify-center px-6 border-b border-slate-800">
 				<div className="flex items-center w-full mb-1">
 					<div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3 shadow-lg shadow-blue-900/20 flex-shrink-0">
 						<span className="text-white font-bold text-xl">A</span>
@@ -27,7 +27,7 @@ const Sidebar = () => {
 				</div>
 			</div>
 
-			{/* NAVIGATION MENU (From Central Config) */}
+			{/* NAVIGATION MENU */}
 			<nav className="flex-1 px-4 py-6 space-y-2">
 				{NAV_ITEMS.map((item) => {
 					const IconComponent = item.icon;
@@ -50,7 +50,7 @@ const Sidebar = () => {
 				})}
 			</nav>
 
-			{/* FOOTER - SIGN OUT BUTTON */}
+			{/* FOOTER */}
 			<div className="p-4 border-t border-slate-800/50">
 				<button className="flex items-center justify-center gap-3 px-4 py-3 w-full text-slate-400 hover:text-white transition-all bg-[#0B1120] border border-slate-800 rounded-xl hover:bg-slate-800 hover:border-slate-700 shadow-sm active:scale-[0.98] group">
 					<LogOut size={18} className="group-hover:text-rose-400 transition-colors" />
