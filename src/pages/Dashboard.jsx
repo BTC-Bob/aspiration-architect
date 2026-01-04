@@ -5,7 +5,8 @@ import { MASTER_LIBRARY } from '../data/master_library';
 import { getDayNumber, getFormattedDate } from '../utils/dateHelpers';
 import ArcGauge from '../components/ArcGauge';
 import GuardianGreeting from '../components/GuardianGreeting';
-// NEW: Import from Control Room to ensure icon consistency
+// NEW: Import the Modular Header
+import PageHeader from '../components/PageHeader';
 import { getNavConfig } from '../config';
 
 const Dashboard = () => {
@@ -13,7 +14,6 @@ const Dashboard = () => {
 	const currentDate = getFormattedDate();
 
 	// --- CONFIGURATION ---
-	// Fetch the exact icon defined for the Dashboard in navigation.js
 	const pageConfig = getNavConfig('dashboard');
 	const PageIcon = pageConfig?.icon;
 
@@ -124,72 +124,63 @@ const Dashboard = () => {
 				<GuardianGreeting onComplete={() => setShowGreeting(false)} />
 			)}
 
-			{/* --- HEADER --- */}
-			<div className="flex-none px-8 py-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 border-b border-slate-800/50 bg-[#0B1120] z-20">
-
-				{/* LEFT: ICON + GREETING (STANDARDIZED LAYOUT) */}
-				<div className="flex items-center gap-4">
-					{/* 1. STANDARDIZED ICON CONTAINER */}
-					<div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-						<PageIcon size={28} className="text-blue-400" />
+			{/* --- MODULAR HEADER --- */}
+			<PageHeader
+				icon={PageIcon}
+				title={
+					<div className="flex items-center gap-3">
+						<span>{greeting}, <span className="text-blue-500">Architect</span></span>
+						<button
+							onClick={handleManualIgnition}
+							className="p-2 rounded-full bg-slate-800/50 hover:bg-blue-500/20 text-slate-500 hover:text-blue-400 transition-all border border-transparent hover:border-blue-500/30"
+							title="Re-Launch Morning Sequence"
+						>
+							<Sun size={18} />
+						</button>
 					</div>
-
-					{/* 2. TEXT & CONTROLS */}
-					<div>
-						<div className="flex items-center gap-3">
-							<h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-								{greeting}, <span className="text-blue-500">Architect</span>
-							</h1>
-
-							{/* RE-IGNITION BUTTON */}
-							<button
-								onClick={handleManualIgnition}
-								className="p-2 rounded-full bg-slate-800/50 hover:bg-blue-500/20 text-slate-500 hover:text-blue-400 transition-all border border-transparent hover:border-blue-500/30"
-								title="Re-Launch Morning Sequence"
-							>
-								<Sun size={18} />
-							</button>
-						</div>
-
-						<div className="flex items-center gap-2 mt-1 text-slate-400 text-sm font-medium">
-							<span className="bg-slate-800/50 px-2 py-0.5 rounded text-xs border border-slate-700">Day {dayNumber}</span>
-							<span>•</span>
-							<span>{currentDate}</span>
-						</div>
+				}
+				subtitle={
+					<div className="flex items-center gap-2">
+						<span className="bg-slate-800/50 px-2 py-0.5 rounded text-xs border border-slate-700">Day {dayNumber}</span>
+						<span>•</span>
+						<span>{currentDate}</span>
 					</div>
-				</div>
+				}
+				actions={
+					<>
+						{/* EST FOCUS */}
+						<div className="hidden md:flex flex-col items-end">
+							<div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Est. Focus Time</div>
+							<div className="text-sm font-bold text-blue-400 flex items-center gap-1">
+								<Clock size={14} /> {timeBudget}
+							</div>
+						</div>
 
-				{/* RIGHT: HUD STATS (Unchanged) */}
-				<div className="flex items-center gap-6">
-					<div className="hidden md:flex flex-col items-end">
-						<div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Est. Focus Time</div>
-						<div className="text-sm font-bold text-blue-400 flex items-center gap-1">
-							<Clock size={14} /> {timeBudget}
+						{/* UP NEXT */}
+						<div className="hidden md:flex items-center gap-3 px-4 py-2 rounded-full bg-[#1A2435] border border-slate-700 shadow-lg animate-pulse-slow">
+							<div className="relative">
+								<div className="w-2 h-2 bg-red-500 rounded-full absolute top-0 right-0 animate-ping"></div>
+								<Calendar size={16} className="text-slate-300" />
+							</div>
+							<div className="flex flex-col leading-none">
+								<span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Up Next • 09:15 AM</span>
+								<span className="text-xs font-bold text-white">Jenda's Dental Appointment</span>
+							</div>
 						</div>
-					</div>
 
-					<div className="hidden md:flex items-center gap-3 px-4 py-2 rounded-full bg-[#1A2435] border border-slate-700 shadow-lg animate-pulse-slow">
-						<div className="relative">
-							<div className="w-2 h-2 bg-red-500 rounded-full absolute top-0 right-0 animate-ping"></div>
-							<Calendar size={16} className="text-slate-300" />
+						{/* TOTAL POINTS */}
+						<div className="flex items-center gap-4 pl-4 border-l border-slate-700">
+							<div className="text-right hidden sm:block">
+								<div className="text-[10px] text-slate-500 uppercase font-bold">Daily Total</div>
+								<div className="text-xs font-bold text-amber-400">{getTierLabel(currentStats.total)}</div>
+							</div>
+							<div className="text-3xl font-bold text-white tabular-nums tracking-tight">
+								{Number.isInteger(currentStats.total) ? currentStats.total : currentStats.total.toFixed(1)}
+							</div>
 						</div>
-						<div className="flex flex-col leading-none">
-							<span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Up Next • 09:15 AM</span>
-							<span className="text-xs font-bold text-white">Jenda's Dental Appointment</span>
-						</div>
-					</div>
-
-					<div className="flex items-center gap-4 pl-4 border-l border-slate-700">
-						<div className="text-right hidden sm:block">
-							<div className="text-[10px] text-slate-500 uppercase font-bold">Daily Total</div>
-							<div className="text-xs font-bold text-amber-400">{getTierLabel(currentStats.total)}</div>
-						</div>
-						<div className="text-3xl font-bold text-white tabular-nums tracking-tight">
-							{Number.isInteger(currentStats.total) ? currentStats.total : currentStats.total.toFixed(1)}
-						</div>
-					</div>
-				</div>
-			</div>
+					</>
+				}
+			/>
 
 			{/* --- SWIMLANES (Unchanged) --- */}
 			<div className="flex-1 min-h-0 p-8 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-y-auto custom-scrollbar">

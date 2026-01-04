@@ -4,8 +4,9 @@ import { User, HardDrive, AlertTriangle, Save, RefreshCw, LogOut, Check } from '
 import useLocalStorage from '../hooks/useLocalStorage';
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
-// NEW: Import from Control Room
 import { APP_VERSION, getNavConfig } from '../config';
+// NEW: Modular Header
+import PageHeader from '../components/PageHeader';
 
 function Settings() {
 	// --- STATE ENGINE ---
@@ -14,9 +15,8 @@ function Settings() {
 	const [isSaved, setIsSaved] = useState(false);
 
 	// --- CONFIGURATION ---
-	// Get the exact icon defined in navigation.js
 	const pageConfig = getNavConfig('settings');
-	const PageIcon = pageConfig?.icon || User; // Fallback if undefined
+	const PageIcon = pageConfig?.icon || User;
 
 	// --- LOGIC ---
 	useEffect(() => {
@@ -36,11 +36,9 @@ function Settings() {
 		}
 	};
 
-	// --- LOGOUT FUNCTION ---
 	const handleLogout = async () => {
 		try {
 			await signOut(auth);
-			// The App.jsx wrapper will automatically detect this and redirect
 		} catch (error) {
 			console.error("Error signing out:", error);
 		}
@@ -49,19 +47,12 @@ function Settings() {
 	return (
 		<div className="h-screen w-full bg-[#0B1120] text-slate-100 font-sans overflow-hidden flex flex-col">
 
-			{/* --- HEADER (Standardized) --- */}
-			<div className="flex-none p-8 border-b border-slate-800 bg-[#0B1120] z-10">
-				<div className="flex items-center gap-4">
-					<div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-						{/* DYNAMIC ICON */}
-						<PageIcon size={28} className="text-blue-400" />
-					</div>
-					<div>
-						<h1 className="text-3xl font-bold text-white tracking-tight">System Configuration</h1>
-						<p className="text-slate-400 text-sm mt-1">Manage protocol parameters and memory core.</p>
-					</div>
-				</div>
-			</div>
+			{/* MODULAR HEADER */}
+			<PageHeader
+				icon={PageIcon}
+				title="System Configuration"
+				subtitle="Manage protocol parameters and memory core."
+			/>
 
 			{/* --- MAIN CONTENT SCROLLABLE --- */}
 			<div className="flex-1 overflow-y-auto custom-scrollbar p-8">
@@ -114,7 +105,6 @@ function Settings() {
 							</div>
 							<div className="p-4 bg-[#0B1120] rounded-xl border border-slate-800">
 								<p className="text-xs text-slate-500 uppercase font-bold">System Version</p>
-								{/* FIXED: DYNAMIC VERSION */}
 								<p className="text-2xl font-mono text-blue-400 mt-1">{APP_VERSION}</p>
 							</div>
 						</div>

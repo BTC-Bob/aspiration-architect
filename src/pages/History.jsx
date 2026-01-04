@@ -3,15 +3,19 @@ import React, { useState, useMemo } from 'react';
 import { generateMockHistory } from '../utils/mockHistory';
 import { Calendar, Scale, Moon, Activity } from 'lucide-react';
 import { getNavConfig } from '../config';
+// NEW: Modular Header
+import PageHeader from '../components/PageHeader';
 
 const History = () => {
+	// 1. Load Data
 	const historyData = useMemo(() => generateMockHistory(), []);
 	const [selectedDay, setSelectedDay] = useState(historyData[historyData.length - 1]);
 
-	// GET ICON FROM CONFIG
+	// 2. Get Navigation Config for Identity
 	const pageConfig = getNavConfig('history');
 	const PageIcon = pageConfig.icon;
 
+	// 3. Stats logic
 	const totalPV = historyData.reduce((acc, day) => acc + day.pv, 0);
 	const annualGoal = 4400;
 	const progressPct = (totalPV / annualGoal) * 100;
@@ -25,6 +29,7 @@ const History = () => {
 		return 'bg-amber-500';
 	};
 
+	// Helper Icon Component
 	const CheckCircleIcon = ({ size, className }) => (
 		<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
 			<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -34,17 +39,15 @@ const History = () => {
 
 	return (
 		<div className="h-screen w-full bg-[#0B1120] text-slate-100 font-sans overflow-hidden flex flex-col">
-			<div className="flex-none p-8 border-b border-slate-800 bg-[#0B1120] z-10">
-				<div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-					<div>
-						<h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-							<PageIcon size={28} className="text-blue-400" />
-							The Vault
-						</h1>
-						<p className="text-slate-400 text-sm mt-1">Performance Archive & Biometric Trends</p>
-					</div>
 
-					<div className="flex-1 max-w-2xl">
+			{/* MODULAR HEADER */}
+			<PageHeader
+				icon={PageIcon}
+				title="The Vault"
+				subtitle="Performance Archive & Biometric Trends"
+				actions={
+					/* MACRO PROGRESS BAR */
+					<div className="flex-1 min-w-[300px] max-w-2xl">
 						<div className="flex justify-between text-xs font-bold uppercase tracking-widest mb-2">
 							<span className="text-blue-400">Annual Progression</span>
 							<span className="text-white">{totalPV.toLocaleString()} / {annualGoal.toLocaleString()} PV</span>
@@ -60,10 +63,13 @@ const History = () => {
 							<span className="text-[10px] text-emerald-400 font-bold">{(progressPct).toFixed(1)}% COMPLETE</span>
 						</div>
 					</div>
-				</div>
-			</div>
+				}
+			/>
 
+			{/* --- MAIN CONTENT --- */}
 			<div className="flex-1 overflow-y-auto custom-scrollbar p-8">
+
+				{/* ZONE B: HEATMAP */}
 				<div className="mb-10">
 					<h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
 						<Calendar size={16} /> Consistency Heatmap (Last 90 Days)
@@ -86,8 +92,10 @@ const History = () => {
 					</div>
 				</div>
 
+				{/* ZONES C & D */}
 				<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 					<div className="lg:col-span-2 space-y-8">
+						{/* Weight Chart */}
 						<div className="bg-[#0f1522] border border-slate-800 rounded-2xl p-6 shadow-lg">
 							<div className="flex justify-between items-center mb-6">
 								<h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -121,6 +129,7 @@ const History = () => {
 							</div>
 						</div>
 
+						{/* Sleep Chart */}
 						<div className="bg-[#0f1522] border border-slate-800 rounded-2xl p-6 shadow-lg">
 							<div className="flex justify-between items-center mb-6">
 								<h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -144,6 +153,7 @@ const History = () => {
 						</div>
 					</div>
 
+					{/* Selected Archive */}
 					<div className="lg:col-span-1">
 						<div className="sticky top-0 bg-[#1A2435] border border-slate-700 rounded-2xl p-6 shadow-2xl">
 							<div className="text-center pb-6 border-b border-slate-600/50">
