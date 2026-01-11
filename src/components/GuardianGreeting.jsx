@@ -3,14 +3,14 @@ import React, { useState, useEffect } from 'react';
 import {
 	Sun, Scale, Activity, CheckCircle, ArrowRight, Moon,
 	Calendar as CalendarIcon, Plus, Search, X, AlertCircle,
-	Settings, Clock, ChevronDown, ChevronUp
+	Settings, ShieldAlert, LogOut
 } from 'lucide-react';
-import { db } from '../firebase';
-import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { db, auth } from '../firebase';
+import { doc, setDoc, collection, getDocs, getDoc } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 import { getFormattedDate } from '../utils/dateHelpers';
 
 // --- CONFIGURATION ---
-
 const STATIC_CATEGORIES = [
 	{ id: 'cat_spiritual', name: 'Spiritual / Prayer', dist: { l: 0.6, h: 0.3, f: 0.1 }, tier: 'high-impact' },
 	{ id: 'cat_relationship', name: 'Relationship / Quality Time', dist: { l: 0.7, h: 0.1, f: 0.2 }, tier: 'high-impact' },
@@ -82,6 +82,9 @@ const GuardianGreeting = ({ onComplete }) => {
 	const [step, setStep] = useState(1);
 	const [fade, setFade] = useState(true);
 	const [loading, setLoading] = useState(false);
+	const [debugStatus, setDebugStatus] = useState(''); // Visual Status Log
+	const [showForceExit, setShowForceExit] = useState(false); // Failsafe
+	const [errorMsg, setErrorMsg] = useState(null);
 
 	// FORM STATE
 	const [data, setData] = useState({
@@ -191,16 +194,36 @@ const GuardianGreeting = ({ onComplete }) => {
 		setSelectedTasks(selectedTasks.filter(t => t.instanceId !== instanceId));
 	};
 
-	// --- ROBUST LAUNCH LOGIC ---
+	// --- ULTRA TRANSPARENT LAUNCH LOGIC ---
 	const handleFinish = async () => {
 		setLoading(true);
-		console.log("IGNITING: Starting Daily Log Write...");
+		setErrorMsg(null);
+		setShowForceExit(false);
+
+		// Activate Failsafe Timer (4 seconds)
+		const failsafeTimer = setTimeout(() => {
+			setShowForceExit(true);
+			setDebugStatus('Taking too long? Use Force Launch below.');
+		}, 4000);
 
 		try {
-			const today = getFormattedDate();
-			console.log(`IGNITING: Target Document -> dailyLogs/${today}`);
+			// STEP 1: AUTH
+			setDebugStatus('1/4 Authenticating...');
+			if (!auth.currentUser) {
+				console.log("IGNITING: No user found. Attempting Anonymous Sign-In...");
+				try {
+					await signInAnonymously(auth);
+				} catch (authErr) {
+					console.warn("Auth failed, attempting write anyway (Test Mode?)");
+				}
+			}
 
-			const dailyLog = {
+			// STEP 2: PREPARE DATA
+			setDebugStatus('2/4 preparing payload...');
+			const today = getFormattedDate();
+
+			// Sanitization
+			const dailyLogRaw = {
 				date: today,
 				createdAt: new Date().toISOString(),
 				physiology: {
@@ -208,14 +231,16 @@ const GuardianGreeting = ({ onComplete }) => {
 					weight: parseFloat(data.weight) || 0
 				},
 				accountability: {
-					digitalSunset: data.digitalSunsetYesterday,
-					pureView: data.pureViewYesterday
+					digitalSunset: data.digitalSunsetYesterday === undefined ? null : data.digitalSunsetYesterday,
+					pureView: data.pureViewYesterday === undefined ? null : data.pureViewYesterday
 				},
 				plannedTasks: {
 					core: selectedTasks.map(t => ({
 						...t,
 						status: 'active',
-						pvEarned: 0
+						pvEarned: 0,
+						notes: t.notes || null,
+						icon: t.icon || '⚡'
 					})),
 					flex: []
 				},
@@ -225,27 +250,31 @@ const GuardianGreeting = ({ onComplete }) => {
 					totalHabits: p.habitIds ? p.habitIds.length : 0,
 					habitsCompleted: [],
 					isComplete: false,
-					completionBonus: p.completionBonus
+					completionBonus: p.completionBonus || 0
 				}))
 			};
+			const dailyLogClean = JSON.parse(JSON.stringify(dailyLogRaw));
 
-			// CRITICAL WRITE OPERATION
-			await setDoc(doc(db, 'dailyLogs', today), dailyLog);
-			console.log("IGNITING: Write Successful!");
+			// STEP 3: WRITE
+			setDebugStatus(`3/4 Writing to dailyLogs/${today}...`);
+			await setDoc(doc(db, 'dailyLogs', today), dailyLogClean);
 
-			// SUCCESS SEQUENCE
+			// STEP 4: SUCCESS
+			clearTimeout(failsafeTimer);
+			setDebugStatus('4/4 Success! Launching Dashboard...');
 			setFade(false);
 
-			// Force reload to ensure context picks up new data
 			setTimeout(() => {
-				console.log("IGNITING: Force Reloading...");
 				window.location.reload();
 			}, 500);
 
 		} catch (err) {
+			clearTimeout(failsafeTimer);
 			console.error("IGNITING ERROR:", err);
-			setLoading(false); // Release the button
-			alert(`LAUNCH FAILED: ${err.message}\n\nCheck Firestore Console > Firestore Database > Rules.\nEnsure read/write is allowed.`);
+			setLoading(false);
+			setDebugStatus('FAILED.');
+			setErrorMsg(err.message); // Display error on screen
+			setShowForceExit(true); // Allow them to escape
 		}
 	};
 
@@ -424,12 +453,35 @@ const GuardianGreeting = ({ onComplete }) => {
 				</div>
 
 				<div className="mt-6 pt-6 border-t border-slate-800">
+					{/* DEBUG & ERROR STATUS AREA */}
+					<div className="mb-2 text-center">
+						<span className={`text-[10px] font-mono tracking-wider ${errorMsg ? 'text-red-400' : 'text-slate-500'}`}>
+							{debugStatus}
+						</span>
+					</div>
+
+					{errorMsg && (
+						<div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 text-xs font-bold">
+							<ShieldAlert size={16} />
+							<span>{errorMsg}</span>
+						</div>
+					)}
+
+					{showForceExit && (
+						<button
+							onClick={() => window.location.reload()}
+							className="w-full mb-3 py-3 rounded-xl font-bold bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center gap-2 text-sm border border-slate-700"
+						>
+							<LogOut size={16} /> FORCE LAUNCH DASHBOARD (SKIP SAVE)
+						</button>
+					)}
+
 					<button
 						onClick={handleFinish}
 						disabled={loading}
 						className="w-full py-4 rounded-2xl font-bold tracking-widest uppercase bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2"
 					>
-						{loading ? 'Igniting...' : 'Launch Dashboard'}
+						{loading ? 'IGNITING...' : 'LAUNCH DASHBOARD'}
 					</button>
 				</div>
 
