@@ -2,13 +2,44 @@
 import React, { useState, useEffect } from 'react';
 import {
 	Sun, Scale, Activity, CheckCircle, ArrowRight, Moon,
-	Calendar as CalendarIcon, Plus, Search, X
+	Calendar as CalendarIcon, Plus, Search, X, AlertCircle
 } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { getFormattedDate } from '../utils/dateHelpers';
 
 // --- CONFIGURATION ---
+
+// v0.3 MASTER CATEGORY LIST (From DATA-CATEGORY-LIBRARY.md)
+// This ensures the dropdown works even if Firestore is empty.
+const STATIC_CATEGORIES = [
+	// LOVE PRIMARY
+	{ id: 'cat_spiritual', name: 'Spiritual / Prayer', dist: { l: 0.6, h: 0.3, f: 0.1 }, tier: 'high-impact' },
+	{ id: 'cat_relationship', name: 'Relationship / Quality Time', dist: { l: 0.7, h: 0.1, f: 0.2 }, tier: 'high-impact' },
+	{ id: 'cat_family', name: 'Family / Household', dist: { l: 0.6, h: 0.2, f: 0.2 }, tier: 'standard' },
+	{ id: 'cat_travel', name: 'Travel / Vacation', dist: { l: 0.5, h: 0.3, f: 0.2 }, tier: 'high-impact' },
+	{ id: 'cat_service', name: 'Volunteering / Service', dist: { l: 0.8, h: 0.1, f: 0.1 }, tier: 'standard' },
+
+	// HEALTH PRIMARY
+	{ id: 'cat_exercise', name: 'Exercise / Fitness', dist: { l: 0.1, h: 0.6, f: 0.3 }, tier: 'high-impact' },
+	{ id: 'cat_nutrition', name: 'Nutrition / Meal Prep', dist: { l: 0.2, h: 0.7, f: 0.1 }, tier: 'standard' },
+	{ id: 'cat_sleep', name: 'Sleep / Recovery', dist: { l: 0.1, h: 0.8, f: 0.1 }, tier: 'high-impact' },
+	{ id: 'cat_rest', name: 'Rest / Leisure', dist: { l: 0.2, h: 0.6, f: 0.2 }, tier: 'standard' },
+	{ id: 'cat_grooming', name: 'Personal Care / Grooming', dist: { l: 0.3, h: 0.5, f: 0.2 }, tier: 'maintenance' },
+	{ id: 'cat_medical', name: 'Medical / Appointments', dist: { l: 0.1, h: 0.8, f: 0.1 }, tier: 'high-impact' },
+
+	// FREEDOM PRIMARY
+	{ id: 'cat_deepwork', name: 'Deep Work (Career)', dist: { l: 0.1, h: 0.2, f: 0.7 }, tier: 'high-impact' },
+	{ id: 'cat_finance', name: 'Finance / Budgeting', dist: { l: 0.1, h: 0.1, f: 0.8 }, tier: 'standard' },
+	{ id: 'cat_creative', name: 'Creative / Side Hustle', dist: { l: 0.2, h: 0.2, f: 0.6 }, tier: 'high-impact' },
+	{ id: 'cat_learning', name: 'Learning / Skill Building', dist: { l: 0.1, h: 0.3, f: 0.6 }, tier: 'standard' },
+	{ id: 'cat_home_maint', name: 'Home Maintenance', dist: { l: 0.3, h: 0.2, f: 0.5 }, tier: 'maintenance' },
+	{ id: 'cat_auto_maint', name: 'Auto Maintenance', dist: { l: 0.1, h: 0.2, f: 0.7 }, tier: 'maintenance' },
+
+	// BALANCED
+	{ id: 'cat_admin', name: 'Admin / Errands', dist: { l: 0.4, h: 0.2, f: 0.4 }, tier: 'maintenance' }
+];
+
 const KEYWORDS_TO_HIGHLIGHT = [
 	"embrace", "design", "fulfilling", "contributes", "blueprint",
 	"intention", "clarity", "aspirations", "dedication",
@@ -66,7 +97,7 @@ const GuardianGreeting = ({ onComplete }) => {
 
 	// PLANNING STATE (Step 4)
 	const [libraryTasks, setLibraryTasks] = useState([]);
-	const [categories, setCategories] = useState([]);
+	const [categories, setCategories] = useState(STATIC_CATEGORIES); // Default to static, fetch updates later
 	const [protocols, setProtocols] = useState([]);
 
 	// Task Selection State
@@ -82,12 +113,11 @@ const GuardianGreeting = ({ onComplete }) => {
 	useEffect(() => {
 		const fetchLibrary = async () => {
 			try {
-				// 1. Fetch Categories (Critical for new tasks)
-				const catsSnap = await getDocs(collection(db, 'categories'));
-				const catsList = catsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-				setCategories(catsList);
+				// 1. Fetch Categories (Merge with Static if needed, but Static is authoritative for v0.3)
+				// We rely on STATIC_CATEGORIES for speed and reliability in this specific file.
 
 				// 2. Fetch Habits/Tasks
+				// Note: If /seed hasn't been run, this returns empty.
 				const habitsSnap = await getDocs(collection(db, 'habits'));
 				const habitsList = habitsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 				setLibraryTasks(habitsList);
@@ -145,6 +175,7 @@ const GuardianGreeting = ({ onComplete }) => {
 
 	// Finalize custom task creation
 	const confirmCreateTask = () => {
+		// Find full category object to get the correct distribution
 		const selectedCat = categories.find(c => c.id === newTaskData.categoryId);
 
 		const newTask = {
@@ -153,7 +184,7 @@ const GuardianGreeting = ({ onComplete }) => {
 			categoryId: newTaskData.categoryId,
 			duration: parseInt(newTaskData.duration),
 			valueTier: selectedCat?.tier || 'standard',
-			pillarDistribution: selectedCat?.dist || { l: 0, h: 0, f: 0 },
+			pillarDistribution: selectedCat?.dist || { l: 0, h: 0, f: 0 }, // CRITICAL FOR PV
 			instanceId: Date.now(),
 			status: 'active'
 		};
@@ -339,14 +370,18 @@ const GuardianGreeting = ({ onComplete }) => {
 						<h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
 							<CheckCircle size={12} /> Today's Protocols
 						</h3>
-						<div className="flex flex-wrap gap-2">
-							{protocols.map(proto => (
-								<div key={proto.id} className="flex items-center gap-2 bg-[#0B1120] border border-slate-700 px-3 py-2 rounded-lg opacity-80">
-									<span>{proto.icon}</span>
-									<span className="text-sm font-medium text-slate-300">{proto.name}</span>
-								</div>
-							))}
-						</div>
+						{protocols.length > 0 ? (
+							<div className="flex flex-wrap gap-2">
+								{protocols.map(proto => (
+									<div key={proto.id} className="flex items-center gap-2 bg-[#0B1120] border border-slate-700 px-3 py-2 rounded-lg opacity-80">
+										<span>{proto.icon}</span>
+										<span className="text-sm font-medium text-slate-300">{proto.name}</span>
+									</div>
+								))}
+							</div>
+						) : (
+							<div className="text-xs text-slate-500 italic">No protocols found. (Run /seed to fix)</div>
+						)}
 					</div>
 
 					{/* CORE TASKS */}
@@ -374,7 +409,7 @@ const GuardianGreeting = ({ onComplete }) => {
 
 							{/* ADD TASK BUTTON */}
 							<button onClick={openTaskSelector} className="w-full py-3 border border-dashed border-slate-700 hover:border-blue-500/50 rounded-xl text-slate-500 hover:text-blue-400 flex items-center justify-center gap-2 transition-colors text-sm font-medium">
-								<Plus size={16} /> Add Core Task
+								<Plus size={16} /> {selectedTasks.length === 0 ? 'Create Your First Task' : 'Add Core Task'}
 							</button>
 						</div>
 					</div>
@@ -418,6 +453,18 @@ const GuardianGreeting = ({ onComplete }) => {
 
 								{/* LIST RESULTS */}
 								<div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
+									{libraryTasks.length === 0 && searchQuery.length === 0 && (
+										<div className="text-center p-4">
+											<div className="inline-flex p-3 bg-slate-800/50 rounded-full mb-3 text-slate-500">
+												<AlertCircle size={24} />
+											</div>
+											<p className="text-sm text-slate-400 mb-2">Library is empty.</p>
+											<button onClick={() => setIsCreatingNew(true)} className="text-blue-400 text-sm font-bold hover:underline">
+												Create Custom Task Now
+											</button>
+										</div>
+									)}
+
 									{libraryTasks
 										.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()))
 										.map(task => (
@@ -430,15 +477,15 @@ const GuardianGreeting = ({ onComplete }) => {
 											</button>
 									))}
 
-									{/* SMART CREATE OPTION (When no exact matches or user wants custom) */}
-									{searchQuery.length > 0 && (
+									{/* SMART CREATE OPTION */}
+									{(searchQuery.length > 0 || libraryTasks.length === 0) && (
 										<button onClick={startCreateTask} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-600/10 border border-blue-500/30 hover:bg-blue-600/20 text-left mt-2">
 											<div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white">
 												<Plus size={20} />
 											</div>
 											<div>
-												<div className="text-sm font-bold text-blue-400">Create "{searchQuery}"</div>
-												<div className="text-xs text-blue-300/70">Add as new custom task</div>
+												<div className="text-sm font-bold text-blue-400">Create "{searchQuery || 'New Task'}"</div>
+												<div className="text-xs text-blue-300/70">Add to library & plan</div>
 											</div>
 										</button>
 									)}
@@ -455,6 +502,7 @@ const GuardianGreeting = ({ onComplete }) => {
 											value={newTaskData.name}
 											onChange={(e) => setNewTaskData({...newTaskData, name: e.target.value})}
 											className="w-full bg-[#0B1120] border border-slate-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none"
+											placeholder="e.g. Deep Work on App"
 										/>
 									</div>
 
