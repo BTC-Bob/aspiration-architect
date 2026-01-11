@@ -40,6 +40,12 @@ const STATIC_CATEGORIES = [
 	{ id: 'cat_admin', name: 'Admin / Errands', dist: { l: 0.4, h: 0.2, f: 0.4 }, tier: 'maintenance' }
 ];
 
+// FALLBACK PROTOCOLS (If DB is empty)
+const STATIC_PROTOCOLS = [
+	{ id: 'protocol_morning', name: 'Morning Protocol', icon: '☀', habitIds: ['make_bed', 'hydrate', 'prayer'], completionBonus: 5 },
+	{ id: 'protocol_evening', name: 'Evening Protocol', icon: '☾', habitIds: ['shutdown', 'reflect'], completionBonus: 5 }
+];
+
 const KEYWORDS_TO_HIGHLIGHT = [
 	"embrace", "design", "fulfilling", "contributes", "blueprint",
 	"intention", "clarity", "aspirations", "dedication",
@@ -124,15 +130,20 @@ const GuardianGreeting = ({ onComplete }) => {
 
 				// 2. Fetch Protocols
 				const protocolsSnap = await getDocs(collection(db, 'protocols'));
-				const protocolsList = protocolsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-				setAllProtocols(protocolsList);
+				let protocolsList = protocolsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-				// Auto-select ALL protocols initially for Beta (User can remove)
-				// In v0.4 we can filter by day of week
+				// FALLBACK IF EMPTY
+				if (protocolsList.length === 0) {
+					protocolsList = STATIC_PROTOCOLS;
+				}
+
+				setAllProtocols(protocolsList);
+				// Auto-select ALL protocols initially
 				setActiveProtocols(protocolsList);
 
 			} catch (err) {
 				console.error("Error loading library:", err);
+				setAllProtocols(STATIC_PROTOCOLS); // Fail safe
 			}
 		};
 		fetchLibrary();
