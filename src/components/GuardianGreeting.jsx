@@ -6,7 +6,7 @@ import {
 	Settings, ShieldAlert, LogOut
 } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { doc, setDoc, collection, getDocs, getDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { getFormattedDate } from '../utils/dateHelpers';
 
@@ -207,9 +207,9 @@ const GuardianGreeting = ({ onComplete }) => {
 		}, 4000);
 
 		try {
-			// STEP 1: AUTH
+			// STEP 1: AUTH CHECK
 			setDebugStatus('1/4 Authenticating...');
-			if (!auth.currentUser) {
+			if (auth && !auth.currentUser) {
 				console.log("IGNITING: No user found. Attempting Anonymous Sign-In...");
 				try {
 					await signInAnonymously(auth);
@@ -219,7 +219,7 @@ const GuardianGreeting = ({ onComplete }) => {
 			}
 
 			// STEP 2: PREPARE DATA
-			setDebugStatus('2/4 preparing payload...');
+			setDebugStatus('2/4 Preparing payload...');
 			const today = getFormattedDate();
 
 			// Sanitization
