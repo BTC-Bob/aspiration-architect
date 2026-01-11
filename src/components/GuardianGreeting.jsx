@@ -3,11 +3,12 @@ import React, { useState, useEffect } from 'react';
 import {
 	Sun, Scale, Activity, CheckCircle, ArrowRight, Moon,
 	Calendar as CalendarIcon, Plus, Search, X, AlertCircle,
-	Settings, ShieldAlert, LogOut, Terminal, ChevronLeft
+	Settings, ShieldAlert, LogOut, Terminal, ChevronLeft,
+	Shield, ShieldCheck, User
 } from 'lucide-react';
-import { db, auth } from '../firebase';
+import { db, auth, googleProvider } from '../firebase';
 import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
+import { signInAnonymously, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { getFormattedDate } from '../utils/dateHelpers';
 
 // --- CONFIGURATION ---
@@ -58,7 +59,7 @@ const PRAYER_LINES = [
 	"May this day reflect my journey towards a year of growth, fulfillment, and purpose, aligning my daily efforts with my vision for the future."
 ];
 
-// --- INTERNAL COMPONENTS ---
+// --- SUB-COMPONENTS ---
 
 const HighlightedText = ({ text }) => {
 	const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -80,7 +81,7 @@ const HighlightedText = ({ text }) => {
 	);
 };
 
-// New: Visual Progress Indicator
+// Visual Progress Indicator
 const StepProgress = ({ current, total = 4 }) => (
 	<div className="flex gap-2 mb-6 px-1">
 		{[...Array(total)].map((_, i) => (
@@ -96,15 +97,47 @@ const StepProgress = ({ current, total = 4 }) => (
 	</div>
 );
 
+// Auth Badge (Shows User Status)
+const AuthBadge = ({ user }) => {
+	if (!user) return (
+		<div className="absolute top-6 right-6 flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-full">
+			<AlertCircle size={14} className="text-red-400" />
+			<span className="text-[10px] font-bold text-red-300 uppercase tracking-wider">Offline</span>
+		</div>
+	);
+
+	if (user.isAnonymous) return (
+		<div className="absolute top-6 right-6 flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full">
+			<Shield size={14} className="text-amber-400" />
+			<span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">Guest Mode</span>
+		</div>
+	);
+
+	return (
+		<div className="absolute top-6 right-6 flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+			{user.photoURL ? (
+				<img src={user.photoURL} alt="User" className="w-4 h-4 rounded-full" />
+			) : (
+				<ShieldCheck size={14} className="text-emerald-400" />
+			)}
+			<span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">Architect Connected</span>
+		</div>
+	);
+};
+
 const GuardianGreeting = ({ onComplete }) => {
-	const [step, setStep] = useState(1);
+	// Step 0 = Auth Check, Step 1-4 = Greeting Flow
+	const [step, setStep] = useState(0);
 	const [fade, setFade] = useState(true);
 	const [loading, setLoading] = useState(false);
+	const [currentUser, setCurrentUser] = useState(null);
+
+	// Debug & Failsafe
 	const [debugStatus, setDebugStatus] = useState('');
 	const [showForceExit, setShowForceExit] = useState(false);
 	const [errorMsg, setErrorMsg] = useState(null);
 
-	// FORM STATE
+	// Form State
 	const [data, setData] = useState({
 		sleepScore: '',
 		weight: '',
@@ -112,7 +145,7 @@ const GuardianGreeting = ({ onComplete }) => {
 		pureViewYesterday: null
 	});
 
-	// PLANNING STATE
+	// Planning State
 	const [libraryTasks, setLibraryTasks] = useState([]);
 	const [categories, setCategories] = useState(STATIC_CATEGORIES);
 	const [allProtocols, setAllProtocols] = useState([]);
@@ -126,6 +159,30 @@ const GuardianGreeting = ({ onComplete }) => {
 	const [isCreatingNew, setIsCreatingNew] = useState(false);
 	const [newTaskData, setNewTaskData] = useState({ name: '', categoryId: '', duration: 30 });
 
+	// 1. AUTH LISTENER (The Gatekeeper)
+	useEffect(() => {
+		const unsubscribe = onAuthStateChanged(auth, (user) => {
+			setCurrentUser(user);
+			if (user) {
+				// If we are sitting at Step 0 (Auth Gate), automatically open the doors to Step 1
+				if (step === 0) {
+					setFade(false);
+					setTimeout(() => {
+						setStep(1);
+						setFade(true);
+					}, 500);
+				}
+			} else {
+				// If logged out, stay at Step 0 or return to it
+				// Note: We don't force reset step if they are already deep in the flow (Steps 2-4),
+				// because we want them to finish and use "Battering Ram" auth at the end.
+				if (step === 0) setLoading(false); // Stop loading spinner if we were waiting
+			}
+		});
+		return () => unsubscribe();
+	}, [step]);
+
+	// 2. LIBRARY LOADER
 	useEffect(() => {
 		const fetchLibrary = async () => {
 			try {
@@ -148,6 +205,32 @@ const GuardianGreeting = ({ onComplete }) => {
 		fetchLibrary();
 	}, []);
 
+	// --- AUTH ACTIONS (STEP 0) ---
+	const handleGoogleLogin = async () => {
+		setLoading(true);
+		try {
+			await signInWithPopup(auth, googleProvider);
+			// onAuthStateChanged will handle the transition to Step 1
+		} catch (error) {
+			console.error("Google Auth Error:", error);
+			setLoading(false);
+			setErrorMsg("Login failed. Try again or use Guest Mode.");
+		}
+	};
+
+	const handleGuestLogin = async () => {
+		setLoading(true);
+		try {
+			await signInAnonymously(auth);
+			// onAuthStateChanged will handle the transition to Step 1
+		} catch (error) {
+			console.error("Guest Auth Error:", error);
+			setLoading(false);
+			setErrorMsg("Guest mode disabled. Check Firebase Console.");
+		}
+	};
+
+	// --- NAVIGATION ---
 	const handleNext = () => {
 		setFade(false);
 		setTimeout(() => {
@@ -166,6 +249,7 @@ const GuardianGreeting = ({ onComplete }) => {
 		}
 	};
 
+	// --- PLANNING HELPERS ---
 	const toggleProtocol = (proto) => {
 		if (activeProtocols.find(p => p.id === proto.id)) {
 			setActiveProtocols(activeProtocols.filter(p => p.id !== proto.id));
@@ -222,7 +306,7 @@ const GuardianGreeting = ({ onComplete }) => {
 		setSelectedTasks(selectedTasks.filter(t => t.instanceId !== instanceId));
 	};
 
-	// --- THE BATTERING RAM LAUNCH PROTOCOL ---
+	// --- LAUNCH LOGIC (Step 4) ---
 	const handleFinish = async () => {
 		setLoading(true);
 		setErrorMsg(null);
@@ -234,21 +318,17 @@ const GuardianGreeting = ({ onComplete }) => {
 		}, 3000);
 
 		try {
-			// STEP 1: AUTHENTICATION
 			setDebugStatus('1/4 Authenticating...');
+			// Redundant check, but good for safety if session expired mid-greeting
 			if (auth && !auth.currentUser) {
 				try {
-					console.log("IGNITING: Attempting Anonymous Sign-In...");
 					await signInAnonymously(auth);
 					setDebugStatus('1/4 Auth Success');
 				} catch (authErr) {
-					console.error("AUTH FAILED:", authErr);
-					alert("AUTHENTICATION ERROR: Firebase Anonymous Auth is DISABLED.\n\nGo to Firebase Console -> Authentication -> Sign-in method -> Enable Anonymous.");
-					throw new Error("Auth Failed. Enable Anonymous Sign-In in Firebase Console.");
+					console.warn("Auth check failed, attempting write anyway.");
 				}
 			}
 
-			// STEP 2: PREPARE DATA
 			setDebugStatus('2/4 Packing Payload...');
 			const today = getFormattedDate();
 
@@ -284,7 +364,6 @@ const GuardianGreeting = ({ onComplete }) => {
 			};
 			const dailyLogClean = JSON.parse(JSON.stringify(dailyLogRaw));
 
-			// STEP 3: WRITE
 			setDebugStatus(`3/4 Writing to dailyLogs/${today}...`);
 			const writePromise = setDoc(doc(db, 'dailyLogs', today), dailyLogClean);
 			const timeoutPromise = new Promise((_, reject) =>
@@ -293,7 +372,6 @@ const GuardianGreeting = ({ onComplete }) => {
 
 			await Promise.race([writePromise, timeoutPromise]);
 
-			// STEP 4: SUCCESS
 			clearTimeout(failsafeTimer);
 			setDebugStatus('4/4 DONE. Launching...');
 			setFade(false);
@@ -303,7 +381,6 @@ const GuardianGreeting = ({ onComplete }) => {
 
 		} catch (err) {
 			clearTimeout(failsafeTimer);
-			console.error("IGNITING ERROR:", err);
 			setLoading(false);
 			setDebugStatus(`FAILED: ${err.message}`);
 			setErrorMsg(err.message);
@@ -311,14 +388,63 @@ const GuardianGreeting = ({ onComplete }) => {
 		}
 	};
 
-	// --- RENDER STEPS ---
+	// --- RENDER ---
+
+	// STEP 0: IDENTITY GATE (New)
+	if (step === 0) return (
+		<div className={`fixed inset-0 z-50 bg-[#050914] flex items-center justify-center p-4 transition-opacity duration-700 ${fade ? 'opacity-100' : 'opacity-0'}`}>
+			<div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl text-center">
+				<div className="flex justify-center mb-6">
+					<div className="p-4 bg-blue-900/20 rounded-full border border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.2)]">
+						<ShieldCheck size={48} className="text-blue-400" />
+					</div>
+				</div>
+				<h1 className="text-2xl font-bold text-white mb-2">Identify Yourself</h1>
+				<p className="text-slate-400 text-sm mb-8 leading-relaxed">
+					To secure your daily plan and ensure data permanence, the Guardian Protocol requires authentication.
+				</p>
+
+				<div className="space-y-3">
+					<button
+						onClick={handleGoogleLogin}
+						disabled={loading}
+						className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center gap-3"
+					>
+						<User size={20} /> Login with Google
+					</button>
+
+					<div className="relative py-2">
+						<div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
+						<div className="relative flex justify-center text-xs uppercase"><span className="bg-[#0f1522] px-2 text-slate-600 font-bold">OR</span></div>
+					</div>
+
+					<button
+						onClick={handleGuestLogin}
+						disabled={loading}
+						className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 border border-slate-700"
+					>
+						<Shield size={18} /> Initialize Guest Protocol
+					</button>
+				</div>
+
+				{errorMsg && (
+					<div className="mt-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs font-bold flex items-center justify-center gap-2">
+						<AlertCircle size={16} /> {errorMsg}
+					</div>
+				)}
+			</div>
+		</div>
+	);
 
 	// STEP 1: PRAYER
 	if (step === 1) return (
 		<div className={`fixed inset-0 z-50 bg-[#050914] flex items-center justify-center p-4 transition-opacity duration-700 ${fade ? 'opacity-100' : 'opacity-0'}`}>
-			<div className="max-w-4xl w-full flex flex-col h-[90vh] md:h-[85vh]">
+			<div className="max-w-4xl w-full flex flex-col h-[90vh] md:h-[85vh] relative">
+
+				<AuthBadge user={currentUser} />
+
 				{/* Header with Progress */}
-				<div className="text-center mb-4 flex-none">
+				<div className="text-center mb-4 flex-none mt-8 md:mt-0">
 					<div className="inline-flex items-center gap-2 bg-blue-900/20 border border-blue-500/30 px-4 py-1.5 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.3)] backdrop-blur-md mb-4">
 						<Sun size={14} className="text-blue-400" />
 						<span className="text-blue-300 text-xs font-bold uppercase tracking-[0.2em]">The Architect's Ignition</span>
@@ -354,6 +480,7 @@ const GuardianGreeting = ({ onComplete }) => {
 	if (step === 2) return (
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative">
+				<AuthBadge user={currentUser} />
 				<StepProgress current={2} />
 				<h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
 					<Activity size={20} className="text-blue-400" /> Physiology Check
@@ -388,6 +515,7 @@ const GuardianGreeting = ({ onComplete }) => {
 	if (step === 3) return (
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative">
+				<AuthBadge user={currentUser} />
 				<StepProgress current={3} />
 				<h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
 					<Scale size={20} className="text-emerald-400" /> Vitality & Integrity
@@ -423,7 +551,9 @@ const GuardianGreeting = ({ onComplete }) => {
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-2xl w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative flex flex-col h-[85vh]">
 
-				<div className="mb-4">
+				<AuthBadge user={currentUser} />
+
+				<div className="mb-4 mt-8 md:mt-0">
 					<StepProgress current={4} />
 					<div className="flex items-center justify-between">
 						<h2 className="text-xl font-bold text-white flex items-center gap-3">
