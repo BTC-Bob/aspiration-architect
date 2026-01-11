@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import {
 	Sun, Scale, Activity, CheckCircle, ArrowRight, Moon,
-	Calendar as CalendarIcon, Plus, Search, X, AlertCircle
+	Calendar as CalendarIcon, Plus, Search, X, AlertCircle,
+	Settings, Clock, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
@@ -10,8 +11,7 @@ import { getFormattedDate } from '../utils/dateHelpers';
 
 // --- CONFIGURATION ---
 
-// v0.3 MASTER CATEGORY LIST (From DATA-CATEGORY-LIBRARY.md)
-// This ensures the dropdown works even if Firestore is empty.
+// v0.3 MASTER CATEGORY LIST (Fallback)
 const STATIC_CATEGORIES = [
 	// LOVE PRIMARY
 	{ id: 'cat_spiritual', name: 'Spiritual / Prayer', dist: { l: 0.6, h: 0.3, f: 0.1 }, tier: 'high-impact' },
@@ -97,8 +97,12 @@ const GuardianGreeting = ({ onComplete }) => {
 
 	// PLANNING STATE (Step 4)
 	const [libraryTasks, setLibraryTasks] = useState([]);
-	const [categories, setCategories] = useState(STATIC_CATEGORIES); // Default to static, fetch updates later
-	const [protocols, setProtocols] = useState([]);
+	const [categories, setCategories] = useState(STATIC_CATEGORIES);
+
+	// PROTOCOLS
+	const [allProtocols, setAllProtocols] = useState([]); // Full library list
+	const [activeProtocols, setActiveProtocols] = useState([]); // Selected for today
+	const [showProtocolSelector, setShowProtocolSelector] = useState(false);
 
 	// Task Selection State
 	const [selectedTasks, setSelectedTasks] = useState([]);
@@ -113,19 +117,19 @@ const GuardianGreeting = ({ onComplete }) => {
 	useEffect(() => {
 		const fetchLibrary = async () => {
 			try {
-				// 1. Fetch Categories (Merge with Static if needed, but Static is authoritative for v0.3)
-				// We rely on STATIC_CATEGORIES for speed and reliability in this specific file.
-
-				// 2. Fetch Habits/Tasks
-				// Note: If /seed hasn't been run, this returns empty.
+				// 1. Fetch Habits/Tasks
 				const habitsSnap = await getDocs(collection(db, 'habits'));
 				const habitsList = habitsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 				setLibraryTasks(habitsList);
 
-				// 3. Fetch Protocols
+				// 2. Fetch Protocols
 				const protocolsSnap = await getDocs(collection(db, 'protocols'));
 				const protocolsList = protocolsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-				setProtocols(protocolsList);
+				setAllProtocols(protocolsList);
+
+				// Auto-select ALL protocols initially for Beta (User can remove)
+				// In v0.4 we can filter by day of week
+				setActiveProtocols(protocolsList);
 
 			} catch (err) {
 				console.error("Error loading library:", err);
@@ -144,13 +148,20 @@ const GuardianGreeting = ({ onComplete }) => {
 
 	// --- STEP 4 HELPERS ---
 
+	const toggleProtocol = (proto) => {
+		if (activeProtocols.find(p => p.id === proto.id)) {
+			setActiveProtocols(activeProtocols.filter(p => p.id !== proto.id));
+		} else {
+			setActiveProtocols([...activeProtocols, proto]);
+		}
+	};
+
 	const openTaskSelector = () => {
 		setSearchQuery('');
 		setIsCreatingNew(false);
 		setShowTaskSelector(true);
 	};
 
-	// Add existing task from library
 	const addLibraryTask = (taskTemplate) => {
 		const newTask = {
 			...taskTemplate,
@@ -162,33 +173,28 @@ const GuardianGreeting = ({ onComplete }) => {
 		setShowTaskSelector(false);
 	};
 
-	// Start creation flow for custom task
 	const startCreateTask = () => {
 		setNewTaskData({
 			name: searchQuery,
 			categoryId: categories[0]?.id || '',
-			duration: 60, // Default 1 hour for Deep Work
+			duration: 60,
 			valueTier: 'standard'
 		});
 		setIsCreatingNew(true);
 	};
 
-	// Finalize custom task creation
 	const confirmCreateTask = () => {
-		// Find full category object to get the correct distribution
 		const selectedCat = categories.find(c => c.id === newTaskData.categoryId);
-
 		const newTask = {
 			taskId: `custom-${Date.now()}`,
 			name: newTaskData.name,
 			categoryId: newTaskData.categoryId,
 			duration: parseInt(newTaskData.duration),
 			valueTier: selectedCat?.tier || 'standard',
-			pillarDistribution: selectedCat?.dist || { l: 0, h: 0, f: 0 }, // CRITICAL FOR PV
+			pillarDistribution: selectedCat?.dist || { l: 0, h: 0, f: 0 },
 			instanceId: Date.now(),
 			status: 'active'
 		};
-
 		setSelectedTasks([...selectedTasks, newTask]);
 		setShowTaskSelector(false);
 		setIsCreatingNew(false);
@@ -226,16 +232,16 @@ const GuardianGreeting = ({ onComplete }) => {
 					core: selectedTasks.map(t => ({
 						...t,
 						status: 'active',
-						pvEarned: 0 // Initialize PV
+						pvEarned: 0
 					})),
-					flex: [] // Future feature
+					flex: []
 				},
 
 				// 4. Protocols
-				protocolProgress: protocols.map(p => ({
+				protocolProgress: activeProtocols.map(p => ({
 					protocolId: p.id,
 					name: p.name,
-					totalHabits: p.habitIds.length,
+					totalHabits: p.habitIds ? p.habitIds.length : 0,
 					habitsCompleted: [],
 					isComplete: false,
 					completionBonus: p.completionBonus
@@ -245,13 +251,23 @@ const GuardianGreeting = ({ onComplete }) => {
 			// WRITE TO FIRESTORE
 			await setDoc(doc(db, 'dailyLogs', today), dailyLog);
 
-			// UI FINISH
+			// UI FINISH (Failsafe Navigation)
 			setFade(false);
-			setTimeout(onComplete, 500);
+
+			// 1. Try standard callback
+			if (onComplete) {
+				setTimeout(onComplete, 500);
+			}
+
+			// 2. Hard reload fallback if app doesn't navigate (Safety Net)
+			setTimeout(() => {
+				window.location.reload();
+			}, 1500);
 
 		} catch (err) {
 			console.error("Error saving Daily Log:", err);
 			setLoading(false);
+			alert("Error saving Plan: " + err.message);
 		}
 	};
 
@@ -319,7 +335,7 @@ const GuardianGreeting = ({ onComplete }) => {
 		</div>
 	);
 
-	// STEP 3: VITALITY & INTEGRITY
+	// STEP 3: VITALITY
 	if (step === 3) return (
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative">
@@ -352,7 +368,7 @@ const GuardianGreeting = ({ onComplete }) => {
 	// STEP 4: PLAN TODAY
 	if (step === 4) return (
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
-			<div className="max-w-2xl w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative flex flex-col h-[80vh]">
+			<div className="max-w-2xl w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative flex flex-col h-[85vh]">
 
 				{/* HEADER */}
 				<div className="mb-6 flex items-center justify-between">
@@ -365,26 +381,51 @@ const GuardianGreeting = ({ onComplete }) => {
 				{/* CONTENT */}
 				<div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
 
-					{/* PROTOCOLS */}
-					<div className="bg-[#1A2435]/30 p-4 rounded-2xl border border-slate-800">
-						<h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-							<CheckCircle size={12} /> Today's Protocols
-						</h3>
-						{protocols.length > 0 ? (
-							<div className="flex flex-wrap gap-2">
-								{protocols.map(proto => (
-									<div key={proto.id} className="flex items-center gap-2 bg-[#0B1120] border border-slate-700 px-3 py-2 rounded-lg opacity-80">
-										<span>{proto.icon}</span>
-										<span className="text-sm font-medium text-slate-300">{proto.name}</span>
-									</div>
-								))}
+					{/* 1. PROTOCOLS MANAGER */}
+					<div className="bg-[#1A2435]/30 p-4 rounded-2xl border border-slate-800 relative">
+						<div className="flex items-center justify-between mb-3">
+							<h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+								<CheckCircle size={12} /> Daily Protocols
+							</h3>
+							<button onClick={() => setShowProtocolSelector(!showProtocolSelector)} className="text-blue-400 hover:text-white text-xs font-bold flex items-center gap-1">
+								<Settings size={12} /> {showProtocolSelector ? 'Done' : 'Manage'}
+							</button>
+						</div>
+
+						{/* Active List */}
+						<div className="flex flex-wrap gap-2">
+							{activeProtocols.length > 0 ? activeProtocols.map(proto => (
+								<div key={proto.id} className="flex items-center gap-2 bg-[#0B1120] border border-slate-700 px-3 py-2 rounded-lg">
+									<span>{proto.icon}</span>
+									<span className="text-sm font-medium text-slate-300">{proto.name}</span>
+								</div>
+							)) : (
+								<div className="text-xs text-slate-500 italic">No protocols active. Click "Manage" to add.</div>
+							)}
+						</div>
+
+						{/* Protocol Selector Dropdown */}
+						{showProtocolSelector && (
+							<div className="mt-4 pt-4 border-t border-slate-700 grid grid-cols-1 gap-2">
+								{allProtocols.map(proto => {
+									const isActive = activeProtocols.find(p => p.id === proto.id);
+									return (
+										<button
+											key={proto.id}
+											onClick={() => toggleProtocol(proto)}
+											className={`flex items-center justify-between p-3 rounded-lg border text-sm font-bold transition-all ${isActive ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
+										>
+											<span className="flex items-center gap-2">{proto.icon} {proto.name}</span>
+											{isActive && <CheckCircle size={14} className="text-blue-400" />}
+										</button>
+									);
+								})}
+								{allProtocols.length === 0 && <div className="text-center text-xs text-slate-500 py-2">Library empty. Run /seed</div>}
 							</div>
-						) : (
-							<div className="text-xs text-slate-500 italic">No protocols found. (Run /seed to fix)</div>
 						)}
 					</div>
 
-					{/* CORE TASKS */}
+					{/* 2. CORE TASKS */}
 					<div>
 						<h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
 							<CheckCircle size={12} /> Core Priorities
@@ -438,7 +479,6 @@ const GuardianGreeting = ({ onComplete }) => {
 
 						{!isCreatingNew ? (
 							<>
-								{/* SEARCH BAR */}
 								<div className="relative mb-4">
 									<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
 									<input
@@ -451,7 +491,6 @@ const GuardianGreeting = ({ onComplete }) => {
 									/>
 								</div>
 
-								{/* LIST RESULTS */}
 								<div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
 									{libraryTasks.length === 0 && searchQuery.length === 0 && (
 										<div className="text-center p-4">
@@ -477,7 +516,6 @@ const GuardianGreeting = ({ onComplete }) => {
 											</button>
 									))}
 
-									{/* SMART CREATE OPTION */}
 									{(searchQuery.length > 0 || libraryTasks.length === 0) && (
 										<button onClick={startCreateTask} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-600/10 border border-blue-500/30 hover:bg-blue-600/20 text-left mt-2">
 											<div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white">
@@ -493,7 +531,6 @@ const GuardianGreeting = ({ onComplete }) => {
 							</>
 						) : (
 							<>
-								{/* CREATE NEW FORM */}
 								<div className="flex-1 overflow-y-auto space-y-6">
 									<div>
 										<label className="block text-xs font-bold text-slate-500 uppercase mb-2">Task Name</label>
@@ -522,16 +559,21 @@ const GuardianGreeting = ({ onComplete }) => {
 
 									<div>
 										<label className="block text-xs font-bold text-slate-500 uppercase mb-2">Duration</label>
-										<div className="flex flex-wrap gap-2">
-											{[15, 30, 45, 60, 90, 120].map(dur => (
-												<button
-													key={dur}
-													onClick={() => setNewTaskData({...newTaskData, duration: dur})}
-													className={`px-3 py-2 rounded-lg text-sm font-bold border transition-all ${newTaskData.duration === dur ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}
-												>
-													{dur}m
-												</button>
-											))}
+										<div className="grid grid-cols-3 gap-2">
+											{/* SHORT */}
+											<button onClick={() => setNewTaskData({...newTaskData, duration: 15})} className={`py-2 rounded-lg text-xs font-bold border ${newTaskData.duration === 15 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>15m</button>
+											<button onClick={() => setNewTaskData({...newTaskData, duration: 30})} className={`py-2 rounded-lg text-xs font-bold border ${newTaskData.duration === 30 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>30m</button>
+											<button onClick={() => setNewTaskData({...newTaskData, duration: 45})} className={`py-2 rounded-lg text-xs font-bold border ${newTaskData.duration === 45 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>45m</button>
+
+											{/* FOCUS */}
+											<button onClick={() => setNewTaskData({...newTaskData, duration: 60})} className={`py-2 rounded-lg text-xs font-bold border ${newTaskData.duration === 60 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>1h</button>
+											<button onClick={() => setNewTaskData({...newTaskData, duration: 90})} className={`py-2 rounded-lg text-xs font-bold border ${newTaskData.duration === 90 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>1.5h</button>
+											<button onClick={() => setNewTaskData({...newTaskData, duration: 120})} className={`py-2 rounded-lg text-xs font-bold border ${newTaskData.duration === 120 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>2h</button>
+
+											{/* DEEP */}
+											<button onClick={() => setNewTaskData({...newTaskData, duration: 180})} className={`py-2 rounded-lg text-xs font-bold border ${newTaskData.duration === 180 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>3h</button>
+											<button onClick={() => setNewTaskData({...newTaskData, duration: 240})} className={`py-2 rounded-lg text-xs font-bold border ${newTaskData.duration === 240 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>4h</button>
+											<button onClick={() => setNewTaskData({...newTaskData, duration: 360})} className={`py-2 rounded-lg text-xs font-bold border ${newTaskData.duration === 360 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>6h</button>
 										</div>
 									</div>
 								</div>
