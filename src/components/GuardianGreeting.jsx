@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
 	Sun, Scale, Activity, CheckCircle, ArrowRight, Moon,
 	Calendar as CalendarIcon, Plus, Search, X, AlertCircle,
-	Settings, ShieldAlert, LogOut
+	Settings, ShieldAlert, LogOut, Terminal, ChevronLeft
 } from 'lucide-react';
 import { db, auth } from '../firebase';
 import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
@@ -58,6 +58,8 @@ const PRAYER_LINES = [
 	"May this day reflect my journey towards a year of growth, fulfillment, and purpose, aligning my daily efforts with my vision for the future."
 ];
 
+// --- INTERNAL COMPONENTS ---
+
 const HighlightedText = ({ text }) => {
 	const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	const pattern = new RegExp(`\\b(${KEYWORDS_TO_HIGHLIGHT.map(escapeRegExp).join('|')})\\b`, 'gi');
@@ -78,12 +80,28 @@ const HighlightedText = ({ text }) => {
 	);
 };
 
+// New: Visual Progress Indicator
+const StepProgress = ({ current, total = 4 }) => (
+	<div className="flex gap-2 mb-6 px-1">
+		{[...Array(total)].map((_, i) => (
+			<div
+				key={i}
+				className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
+					i + 1 <= current
+					? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]'
+					: 'bg-slate-800'
+				}`}
+			/>
+		))}
+	</div>
+);
+
 const GuardianGreeting = ({ onComplete }) => {
 	const [step, setStep] = useState(1);
 	const [fade, setFade] = useState(true);
 	const [loading, setLoading] = useState(false);
-	const [debugStatus, setDebugStatus] = useState(''); // Visual Status Log
-	const [showForceExit, setShowForceExit] = useState(false); // Failsafe
+	const [debugStatus, setDebugStatus] = useState('');
+	const [showForceExit, setShowForceExit] = useState(false);
 	const [errorMsg, setErrorMsg] = useState(null);
 
 	// FORM STATE
@@ -136,6 +154,16 @@ const GuardianGreeting = ({ onComplete }) => {
 			setStep(step + 1);
 			setFade(true);
 		}, 300);
+	};
+
+	const handleBack = () => {
+		if (step > 1) {
+			setFade(false);
+			setTimeout(() => {
+				setStep(step - 1);
+				setFade(true);
+			}, 300);
+		}
 	};
 
 	const toggleProtocol = (proto) => {
@@ -194,35 +222,36 @@ const GuardianGreeting = ({ onComplete }) => {
 		setSelectedTasks(selectedTasks.filter(t => t.instanceId !== instanceId));
 	};
 
-	// --- ULTRA TRANSPARENT LAUNCH LOGIC ---
+	// --- THE BATTERING RAM LAUNCH PROTOCOL ---
 	const handleFinish = async () => {
 		setLoading(true);
 		setErrorMsg(null);
 		setShowForceExit(false);
 
-		// Activate Failsafe Timer (4 seconds)
 		const failsafeTimer = setTimeout(() => {
 			setShowForceExit(true);
-			setDebugStatus('Taking too long? Use Force Launch below.');
-		}, 4000);
+			setDebugStatus('Connection unstable. Use Force Launch below.');
+		}, 3000);
 
 		try {
-			// STEP 1: AUTH CHECK
+			// STEP 1: AUTHENTICATION
 			setDebugStatus('1/4 Authenticating...');
 			if (auth && !auth.currentUser) {
-				console.log("IGNITING: No user found. Attempting Anonymous Sign-In...");
 				try {
+					console.log("IGNITING: Attempting Anonymous Sign-In...");
 					await signInAnonymously(auth);
+					setDebugStatus('1/4 Auth Success');
 				} catch (authErr) {
-					console.warn("Auth failed, attempting write anyway (Test Mode?)");
+					console.error("AUTH FAILED:", authErr);
+					alert("AUTHENTICATION ERROR: Firebase Anonymous Auth is DISABLED.\n\nGo to Firebase Console -> Authentication -> Sign-in method -> Enable Anonymous.");
+					throw new Error("Auth Failed. Enable Anonymous Sign-In in Firebase Console.");
 				}
 			}
 
 			// STEP 2: PREPARE DATA
-			setDebugStatus('2/4 Preparing payload...');
+			setDebugStatus('2/4 Packing Payload...');
 			const today = getFormattedDate();
 
-			// Sanitization
 			const dailyLogRaw = {
 				date: today,
 				createdAt: new Date().toISOString(),
@@ -257,13 +286,17 @@ const GuardianGreeting = ({ onComplete }) => {
 
 			// STEP 3: WRITE
 			setDebugStatus(`3/4 Writing to dailyLogs/${today}...`);
-			await setDoc(doc(db, 'dailyLogs', today), dailyLogClean);
+			const writePromise = setDoc(doc(db, 'dailyLogs', today), dailyLogClean);
+			const timeoutPromise = new Promise((_, reject) =>
+				setTimeout(() => reject(new Error("Database Timeout")), 3000)
+			);
+
+			await Promise.race([writePromise, timeoutPromise]);
 
 			// STEP 4: SUCCESS
 			clearTimeout(failsafeTimer);
-			setDebugStatus('4/4 Success! Launching Dashboard...');
+			setDebugStatus('4/4 DONE. Launching...');
 			setFade(false);
-
 			setTimeout(() => {
 				window.location.reload();
 			}, 500);
@@ -272,22 +305,29 @@ const GuardianGreeting = ({ onComplete }) => {
 			clearTimeout(failsafeTimer);
 			console.error("IGNITING ERROR:", err);
 			setLoading(false);
-			setDebugStatus('FAILED.');
-			setErrorMsg(err.message); // Display error on screen
-			setShowForceExit(true); // Allow them to escape
+			setDebugStatus(`FAILED: ${err.message}`);
+			setErrorMsg(err.message);
+			setShowForceExit(true);
 		}
 	};
 
-	// --- RENDER ---
+	// --- RENDER STEPS ---
+
+	// STEP 1: PRAYER
 	if (step === 1) return (
 		<div className={`fixed inset-0 z-50 bg-[#050914] flex items-center justify-center p-4 transition-opacity duration-700 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-4xl w-full flex flex-col h-[90vh] md:h-[85vh]">
-				<div className="text-center mb-6 flex-none">
-					<div className="inline-flex items-center gap-2 bg-blue-900/20 border border-blue-500/30 px-4 py-1.5 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.3)] backdrop-blur-md">
+				{/* Header with Progress */}
+				<div className="text-center mb-4 flex-none">
+					<div className="inline-flex items-center gap-2 bg-blue-900/20 border border-blue-500/30 px-4 py-1.5 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.3)] backdrop-blur-md mb-4">
 						<Sun size={14} className="text-blue-400" />
 						<span className="text-blue-300 text-xs font-bold uppercase tracking-[0.2em]">The Architect's Ignition</span>
 					</div>
+					<div className="max-w-md mx-auto">
+						<StepProgress current={1} />
+					</div>
 				</div>
+
 				<div className="flex-1 min-h-0 mb-8 relative bg-[#0f1522]/50 border border-slate-800 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
 					<div className="flex-none p-6 text-center border-b border-slate-800/50 bg-[#0B1120]/80 backdrop-blur-sm relative z-10">
 						<h1 className="text-3xl font-bold text-white tracking-tight font-serif">Morning Prayer</h1>
@@ -310,9 +350,11 @@ const GuardianGreeting = ({ onComplete }) => {
 		</div>
 	);
 
+	// STEP 2: PHYSIOLOGY
 	if (step === 2) return (
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative">
+				<StepProgress current={2} />
 				<h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
 					<Activity size={20} className="text-blue-400" /> Physiology Check
 				</h2>
@@ -332,16 +374,21 @@ const GuardianGreeting = ({ onComplete }) => {
 						</div>
 					</div>
 				</div>
-				<div className="mt-8 pt-6 border-t border-slate-800 flex justify-end">
+				<div className="mt-8 pt-6 border-t border-slate-800 flex justify-between items-center">
+					<button onClick={handleBack} className="text-slate-500 hover:text-white flex items-center gap-2 text-sm font-bold px-4 py-2">
+						<ChevronLeft size={16} /> Back
+					</button>
 					<button onClick={handleNext} disabled={!data.sleepScore || !data.weight} className={`px-6 py-3 rounded-xl font-bold text-sm ${(!data.sleepScore || !data.weight) ? 'bg-slate-800 text-slate-600' : 'bg-blue-600 text-white'}`}>Next Phase</button>
 				</div>
 			</div>
 		</div>
 	);
 
+	// STEP 3: VITALITY
 	if (step === 3) return (
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative">
+				<StepProgress current={3} />
 				<h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
 					<Scale size={20} className="text-emerald-400" /> Vitality & Integrity
 				</h2>
@@ -361,22 +408,29 @@ const GuardianGreeting = ({ onComplete }) => {
 						</div>
 					</div>
 				</div>
-				<div className="mt-8 pt-6 border-t border-slate-800 flex justify-end">
+				<div className="mt-8 pt-6 border-t border-slate-800 flex justify-between items-center">
+					<button onClick={handleBack} className="text-slate-500 hover:text-white flex items-center gap-2 text-sm font-bold px-4 py-2">
+						<ChevronLeft size={16} /> Back
+					</button>
 					<button onClick={handleNext} disabled={data.digitalSunsetYesterday === null || data.pureViewYesterday === null} className={`px-6 py-3 rounded-xl font-bold text-sm ${data.digitalSunsetYesterday === null ? 'bg-slate-800 text-slate-600' : 'bg-blue-600 text-white'}`}>Next Phase</button>
 				</div>
 			</div>
 		</div>
 	);
 
+	// STEP 4: PLAN TODAY
 	if (step === 4) return (
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-2xl w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative flex flex-col h-[85vh]">
 
-				<div className="mb-6 flex items-center justify-between">
-					 <h2 className="text-xl font-bold text-white flex items-center gap-3">
-						<CalendarIcon size={20} className="text-amber-400" /> Plan Your Day
-					</h2>
-					<span className="text-xs font-bold text-slate-500 uppercase">Step 4 of 4</span>
+				<div className="mb-4">
+					<StepProgress current={4} />
+					<div className="flex items-center justify-between">
+						<h2 className="text-xl font-bold text-white flex items-center gap-3">
+							<CalendarIcon size={20} className="text-amber-400" /> Plan Your Day
+						</h2>
+						<span className="text-xs font-bold text-slate-500 uppercase">Step 4 of 4</span>
+					</div>
 				</div>
 
 				<div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
@@ -453,17 +507,17 @@ const GuardianGreeting = ({ onComplete }) => {
 				</div>
 
 				<div className="mt-6 pt-6 border-t border-slate-800">
-					{/* DEBUG & ERROR STATUS AREA */}
+					{/* DEBUG STATUS */}
 					<div className="mb-2 text-center">
-						<span className={`text-[10px] font-mono tracking-wider ${errorMsg ? 'text-red-400' : 'text-slate-500'}`}>
-							{debugStatus}
+						<span className={`text-[10px] font-mono tracking-wider flex items-center justify-center gap-2 ${errorMsg ? 'text-red-400' : 'text-slate-500'}`}>
+							{debugStatus && <Terminal size={10} />} {debugStatus}
 						</span>
 					</div>
 
 					{errorMsg && (
 						<div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 text-xs font-bold">
 							<ShieldAlert size={16} />
-							<span>{errorMsg}</span>
+							<span className="flex-1">{errorMsg}</span>
 						</div>
 					)}
 
@@ -476,13 +530,21 @@ const GuardianGreeting = ({ onComplete }) => {
 						</button>
 					)}
 
-					<button
-						onClick={handleFinish}
-						disabled={loading}
-						className="w-full py-4 rounded-2xl font-bold tracking-widest uppercase bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2"
-					>
-						{loading ? 'IGNITING...' : 'LAUNCH DASHBOARD'}
-					</button>
+					<div className="flex gap-3">
+						<button
+							onClick={handleBack}
+							className="px-6 py-4 rounded-2xl font-bold bg-slate-800 text-slate-400 hover:text-white transition-colors"
+						>
+							<ChevronLeft size={20} />
+						</button>
+						<button
+							onClick={handleFinish}
+							disabled={loading}
+							className="flex-1 py-4 rounded-2xl font-bold tracking-widest uppercase bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2"
+						>
+							{loading ? 'IGNITING...' : 'LAUNCH DASHBOARD'}
+						</button>
+					</div>
 				</div>
 
 				{showTaskSelector && (
