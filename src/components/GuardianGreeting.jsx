@@ -1,11 +1,11 @@
 // src/components/GuardianGreeting.jsx
 import React, { useState, useEffect } from 'react';
 import {
-	Sun, Scale, Activity, Eye, CheckCircle, ArrowRight, Moon,
-	Calendar as CalendarIcon, Clock, Plus, Search, X
+	Sun, Scale, Activity, CheckCircle, ArrowRight, Moon,
+	Calendar as CalendarIcon, Plus, Search, X
 } from 'lucide-react';
-import { db, auth } from '../firebase';
-import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
+import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { getFormattedDate } from '../utils/dateHelpers';
 
 // --- CONFIGURATION ---
@@ -66,27 +66,35 @@ const GuardianGreeting = ({ onComplete }) => {
 
 	// PLANNING STATE (Step 4)
 	const [libraryTasks, setLibraryTasks] = useState([]);
-	const [selectedTasks, setSelectedTasks] = useState([]); // Array of task objects
-	const [showTaskSelector, setShowTaskSelector] = useState(false);
+	const [categories, setCategories] = useState([]);
 	const [protocols, setProtocols] = useState([]);
+
+	// Task Selection State
+	const [selectedTasks, setSelectedTasks] = useState([]);
+	const [showTaskSelector, setShowTaskSelector] = useState(false);
+	const [searchQuery, setSearchQuery] = useState('');
+
+	// New Task Creation State
+	const [isCreatingNew, setIsCreatingNew] = useState(false);
+	const [newTaskData, setNewTaskData] = useState({ name: '', categoryId: '', duration: 30 });
 
 	// LOAD LIBRARY DATA
 	useEffect(() => {
 		const fetchLibrary = async () => {
 			try {
-				// 1. Fetch Tasks
-				// Note: In a real app, we might query only 'isLibraryItem: true'
-				// For now, we'll assume we seed some tasks or user creates them.
-				// Since we seeded HABITS but not TASKS, we'll use Habits as the source for now.
+				// 1. Fetch Categories (Critical for new tasks)
+				const catsSnap = await getDocs(collection(db, 'categories'));
+				const catsList = catsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+				setCategories(catsList);
+
+				// 2. Fetch Habits/Tasks
 				const habitsSnap = await getDocs(collection(db, 'habits'));
 				const habitsList = habitsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 				setLibraryTasks(habitsList);
 
-				// 2. Fetch Protocols
+				// 3. Fetch Protocols
 				const protocolsSnap = await getDocs(collection(db, 'protocols'));
 				const protocolsList = protocolsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-				// Auto-select protocols based on today? (Simple all-active for now)
 				setProtocols(protocolsList);
 
 			} catch (err) {
@@ -104,16 +112,55 @@ const GuardianGreeting = ({ onComplete }) => {
 		}, 300);
 	};
 
-	// --- STEP 4 LOGIC: ADDING TASKS ---
-	const addTaskToPlan = (taskTemplate) => {
+	// --- STEP 4 HELPERS ---
+
+	const openTaskSelector = () => {
+		setSearchQuery('');
+		setIsCreatingNew(false);
+		setShowTaskSelector(true);
+	};
+
+	// Add existing task from library
+	const addLibraryTask = (taskTemplate) => {
 		const newTask = {
 			...taskTemplate,
-			taskId: taskTemplate.id, // Keep reference
-			instanceId: Date.now(), // Unique ID for today's list
+			taskId: taskTemplate.id,
+			instanceId: Date.now(),
 			status: 'active'
 		};
 		setSelectedTasks([...selectedTasks, newTask]);
 		setShowTaskSelector(false);
+	};
+
+	// Start creation flow for custom task
+	const startCreateTask = () => {
+		setNewTaskData({
+			name: searchQuery,
+			categoryId: categories[0]?.id || '',
+			duration: 60, // Default 1 hour for Deep Work
+			valueTier: 'standard'
+		});
+		setIsCreatingNew(true);
+	};
+
+	// Finalize custom task creation
+	const confirmCreateTask = () => {
+		const selectedCat = categories.find(c => c.id === newTaskData.categoryId);
+
+		const newTask = {
+			taskId: `custom-${Date.now()}`,
+			name: newTaskData.name,
+			categoryId: newTaskData.categoryId,
+			duration: parseInt(newTaskData.duration),
+			valueTier: selectedCat?.tier || 'standard',
+			pillarDistribution: selectedCat?.dist || { l: 0, h: 0, f: 0 },
+			instanceId: Date.now(),
+			status: 'active'
+		};
+
+		setSelectedTasks([...selectedTasks, newTask]);
+		setShowTaskSelector(false);
+		setIsCreatingNew(false);
 	};
 
 	const removeTask = (instanceId) => {
@@ -147,7 +194,7 @@ const GuardianGreeting = ({ onComplete }) => {
 				plannedTasks: {
 					core: selectedTasks.map(t => ({
 						...t,
-						status: 'active', // Reset status for the day
+						status: 'active',
 						pvEarned: 0 // Initialize PV
 					})),
 					flex: [] // Future feature
@@ -177,7 +224,9 @@ const GuardianGreeting = ({ onComplete }) => {
 		}
 	};
 
-	// --- STEP 1: PRAYER ---
+	// --- RENDER STEPS ---
+
+	// STEP 1: PRAYER
 	if (step === 1) return (
 		<div className={`fixed inset-0 z-50 bg-[#050914] flex items-center justify-center p-4 transition-opacity duration-700 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-4xl w-full flex flex-col h-[90vh] md:h-[85vh]">
@@ -193,27 +242,23 @@ const GuardianGreeting = ({ onComplete }) => {
 						<div className="w-24 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent mx-auto mt-4 opacity-50"></div>
 					</div>
 					<div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 text-center flex flex-col justify-start items-center space-y-8 relative z-0">
-						<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] bg-blue-500/5 blur-[80px] rounded-full pointer-events-none"></div>
 						{PRAYER_LINES.map((line, i) => (
 							<p key={i} className="text-lg md:text-xl text-slate-300 font-medium leading-loose tracking-wide max-w-3xl relative z-10">
 								<HighlightedText text={line} />
 							</p>
 						))}
-						<div className="h-8 shrink-0"></div>
 					</div>
-					<div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0f1522] to-transparent pointer-events-none z-10"></div>
 				</div>
 				<div className="flex-none text-center">
-					<button onClick={handleNext} className="relative group bg-blue-600 hover:bg-blue-500 text-white px-12 py-4 rounded-full font-bold tracking-[0.15em] uppercase transition-all shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:shadow-[0_0_50px_rgba(37,99,235,0.6)] hover:scale-105 active:scale-95">
-						<span className="flex items-center gap-3">I Am Aligned <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></span>
-						<span className="absolute -inset-1 rounded-full border border-blue-400/30 opacity-0 group-hover:opacity-100 animate-ping pointer-events-none"></span>
+					<button onClick={handleNext} className="bg-blue-600 hover:bg-blue-500 text-white px-12 py-4 rounded-full font-bold tracking-[0.15em] uppercase transition-all shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:scale-105">
+						<span className="flex items-center gap-3">I Am Aligned <ArrowRight size={18} /></span>
 					</button>
 				</div>
 			</div>
 		</div>
 	);
 
-	// --- STEP 2: PHYSIOLOGY ---
+	// STEP 2: PHYSIOLOGY
 	if (step === 2) return (
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative">
@@ -243,51 +288,29 @@ const GuardianGreeting = ({ onComplete }) => {
 		</div>
 	);
 
-	// --- STEP 3: ACCOUNTABILITY ---
+	// STEP 3: VITALITY & INTEGRITY
 	if (step === 3) return (
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
-			<div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-				<div className="absolute top-0 right-0 p-32 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-
-				<div className="mb-6 flex items-center justify-between relative z-10">
-					 <h2 className="text-xl font-bold text-white flex items-center gap-3">
-						<Scale size={20} className="text-emerald-400" /> Vitality & Integrity
-					</h2>
-					<span className="text-xs font-bold text-slate-500 uppercase">Step 3 of 4</span>
-				</div>
-
-				<div className="space-y-6 relative z-10">
-					{/* DIGITAL SUNSET */}
+			<div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative">
+				<h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+					<Scale size={20} className="text-emerald-400" /> Vitality & Integrity
+				</h2>
+				<div className="space-y-6">
 					<div className="bg-[#1A2435]/50 p-4 rounded-2xl border border-slate-700/50">
-						<div className="flex items-start gap-3">
-							<Moon size={20} className={data.digitalSunsetYesterday === true ? "text-indigo-400" : "text-slate-500"} />
-							<div className="flex-1">
-								<h3 className="text-sm font-bold text-white">Digital Sunset</h3>
-								<p className="text-xs text-slate-400 mt-1 mb-3">Did you execute the "Shutdown Protocol" (Zero Screens) last night?</p>
-								<div className="flex gap-2">
-									<button onClick={() => setData({...data, digitalSunsetYesterday: true})} className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${data.digitalSunsetYesterday === true ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-indigo-500/50'}`}>YES</button>
-									<button onClick={() => setData({...data, digitalSunsetYesterday: false})} className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${data.digitalSunsetYesterday === false ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-600'}`}>NO</button>
-								</div>
-							</div>
+						<h3 className="text-sm font-bold text-white mb-3">Digital Sunset</h3>
+						<div className="flex gap-2">
+							<button onClick={() => setData({...data, digitalSunsetYesterday: true})} className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${data.digitalSunsetYesterday === true ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500'}`}>YES</button>
+							<button onClick={() => setData({...data, digitalSunsetYesterday: false})} className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${data.digitalSunsetYesterday === false ? 'bg-slate-700 text-white' : 'bg-slate-800 text-slate-500'}`}>NO</button>
 						</div>
 					</div>
-
-					{/* PUREVIEW CHECK */}
 					<div className="bg-[#1A2435]/50 p-4 rounded-2xl border border-slate-700/50">
-						<div className="flex items-start gap-3">
-							<Eye size={20} className={data.pureViewYesterday === true ? "text-emerald-400" : "text-slate-500"} />
-							<div className="flex-1">
-								<h3 className="text-sm font-bold text-white">PureView Integrity Check</h3>
-								<p className="text-xs text-slate-400 mt-1 mb-3">Did you maintain wholesome visual standards yesterday?</p>
-								<div className="flex gap-2">
-									<button onClick={() => setData({...data, pureViewYesterday: true})} className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${data.pureViewYesterday === true ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-emerald-500/50'}`}>YES</button>
-									<button onClick={() => setData({...data, pureViewYesterday: false})} className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${data.pureViewYesterday === false ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-rose-500/50'}`}>NO</button>
-								</div>
-							</div>
+						<h3 className="text-sm font-bold text-white mb-3">PureView Check</h3>
+						<div className="flex gap-2">
+							<button onClick={() => setData({...data, pureViewYesterday: true})} className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${data.pureViewYesterday === true ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-500'}`}>YES</button>
+							<button onClick={() => setData({...data, pureViewYesterday: false})} className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${data.pureViewYesterday === false ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-500'}`}>NO</button>
 						</div>
 					</div>
 				</div>
-
 				<div className="mt-8 pt-6 border-t border-slate-800 flex justify-end">
 					<button onClick={handleNext} disabled={data.digitalSunsetYesterday === null || data.pureViewYesterday === null} className={`px-6 py-3 rounded-xl font-bold text-sm ${data.digitalSunsetYesterday === null ? 'bg-slate-800 text-slate-600' : 'bg-blue-600 text-white'}`}>Next Phase</button>
 				</div>
@@ -295,11 +318,12 @@ const GuardianGreeting = ({ onComplete }) => {
 		</div>
 	);
 
-	// --- STEP 4: PLAN TODAY (NEW) ---
+	// STEP 4: PLAN TODAY
 	if (step === 4) return (
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-2xl w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative flex flex-col h-[80vh]">
 
+				{/* HEADER */}
 				<div className="mb-6 flex items-center justify-between">
 					 <h2 className="text-xl font-bold text-white flex items-center gap-3">
 						<CalendarIcon size={20} className="text-amber-400" /> Plan Your Day
@@ -307,9 +331,10 @@ const GuardianGreeting = ({ onComplete }) => {
 					<span className="text-xs font-bold text-slate-500 uppercase">Step 4 of 4</span>
 				</div>
 
+				{/* CONTENT */}
 				<div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
 
-					{/* 1. PROTOCOLS (Auto-Added) */}
+					{/* PROTOCOLS */}
 					<div className="bg-[#1A2435]/30 p-4 rounded-2xl border border-slate-800">
 						<h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
 							<CheckCircle size={12} /> Today's Protocols
@@ -324,12 +349,11 @@ const GuardianGreeting = ({ onComplete }) => {
 						</div>
 					</div>
 
-					{/* 2. CORE TASKS */}
+					{/* CORE TASKS */}
 					<div>
 						<h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
 							<CheckCircle size={12} /> Core Priorities
 						</h3>
-
 						<div className="space-y-2">
 							{selectedTasks.map(task => (
 								<div key={task.instanceId} className="flex items-center justify-between bg-[#1A2435] border border-slate-700 p-3 rounded-xl group">
@@ -348,14 +372,15 @@ const GuardianGreeting = ({ onComplete }) => {
 								</div>
 							))}
 
-							{/* Add Button */}
-							<button onClick={() => setShowTaskSelector(true)} className="w-full py-3 border border-dashed border-slate-700 hover:border-blue-500/50 rounded-xl text-slate-500 hover:text-blue-400 flex items-center justify-center gap-2 transition-colors text-sm font-medium">
+							{/* ADD TASK BUTTON */}
+							<button onClick={openTaskSelector} className="w-full py-3 border border-dashed border-slate-700 hover:border-blue-500/50 rounded-xl text-slate-500 hover:text-blue-400 flex items-center justify-center gap-2 transition-colors text-sm font-medium">
 								<Plus size={16} /> Add Core Task
 							</button>
 						</div>
 					</div>
 				</div>
 
+				{/* FOOTER */}
 				<div className="mt-6 pt-6 border-t border-slate-800">
 					<button
 						onClick={handleFinish}
@@ -366,41 +391,112 @@ const GuardianGreeting = ({ onComplete }) => {
 					</button>
 				</div>
 
-				{/* TASK SELECTOR MODAL */}
+				{/* --- SMART TASK SELECTOR MODAL --- */}
 				{showTaskSelector && (
 					<div className="absolute inset-0 z-50 bg-[#0f1522] rounded-3xl p-6 flex flex-col">
 						<div className="flex items-center justify-between mb-4">
-							<h3 className="text-lg font-bold text-white">Select Task</h3>
+							<h3 className="text-lg font-bold text-white">
+								{isCreatingNew ? 'Create New Task' : 'Select Task'}
+							</h3>
 							<button onClick={() => setShowTaskSelector(false)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white"><X size={16}/></button>
 						</div>
 
-						{/* Search (Visual Only for now) */}
-						<div className="relative mb-4">
-							<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-							<input type="text" placeholder="Search library..." className="w-full bg-[#0B1120] border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:border-blue-500 outline-none" />
-						</div>
-
-						<div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
-							{libraryTasks.map(task => (
-								<button
-									key={task.id}
-									onClick={() => addTaskToPlan(task)}
-									className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-800 transition-colors text-left border border-transparent hover:border-slate-700"
-								>
-									<span className="text-xl">{task.icon || '⚡'}</span>
-									<div>
-										<div className="text-sm font-bold text-slate-200">{task.name}</div>
-										<div className="text-xs text-slate-500">{task.duration}m • {task.valueTier}</div>
-									</div>
-								</button>
-							))}
-							{libraryTasks.length === 0 && (
-								<div className="text-center py-10 text-slate-500 text-sm">
-									No tasks found in library.
-									<br/>(Run /seed to populate)
+						{!isCreatingNew ? (
+							<>
+								{/* SEARCH BAR */}
+								<div className="relative mb-4">
+									<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+									<input
+										type="text"
+										placeholder="Search library..."
+										value={searchQuery}
+										onChange={(e) => setSearchQuery(e.target.value)}
+										autoFocus
+										className="w-full bg-[#0B1120] border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:border-blue-500 outline-none"
+									/>
 								</div>
-							)}
-						</div>
+
+								{/* LIST RESULTS */}
+								<div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
+									{libraryTasks
+										.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()))
+										.map(task => (
+											<button key={task.id} onClick={() => addLibraryTask(task)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-800 transition-colors text-left border border-transparent hover:border-slate-700">
+												<span className="text-xl">{task.icon || '⚡'}</span>
+												<div>
+													<div className="text-sm font-bold text-slate-200">{task.name}</div>
+													<div className="text-xs text-slate-500">{task.duration}m • {task.valueTier}</div>
+												</div>
+											</button>
+									))}
+
+									{/* SMART CREATE OPTION (When no exact matches or user wants custom) */}
+									{searchQuery.length > 0 && (
+										<button onClick={startCreateTask} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-600/10 border border-blue-500/30 hover:bg-blue-600/20 text-left mt-2">
+											<div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+												<Plus size={20} />
+											</div>
+											<div>
+												<div className="text-sm font-bold text-blue-400">Create "{searchQuery}"</div>
+												<div className="text-xs text-blue-300/70">Add as new custom task</div>
+											</div>
+										</button>
+									)}
+								</div>
+							</>
+						) : (
+							<>
+								{/* CREATE NEW FORM */}
+								<div className="flex-1 overflow-y-auto space-y-6">
+									<div>
+										<label className="block text-xs font-bold text-slate-500 uppercase mb-2">Task Name</label>
+										<input
+											type="text"
+											value={newTaskData.name}
+											onChange={(e) => setNewTaskData({...newTaskData, name: e.target.value})}
+											className="w-full bg-[#0B1120] border border-slate-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none"
+										/>
+									</div>
+
+									<div>
+										<label className="block text-xs font-bold text-slate-500 uppercase mb-2">Category (Determines PV)</label>
+										<select
+											value={newTaskData.categoryId}
+											onChange={(e) => setNewTaskData({...newTaskData, categoryId: e.target.value})}
+											className="w-full bg-[#0B1120] border border-slate-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none appearance-none"
+										>
+											<option value="">Select Category...</option>
+											{categories.map(cat => (
+												<option key={cat.id} value={cat.id}>{cat.name}</option>
+											))}
+										</select>
+									</div>
+
+									<div>
+										<label className="block text-xs font-bold text-slate-500 uppercase mb-2">Duration</label>
+										<div className="flex flex-wrap gap-2">
+											{[15, 30, 45, 60, 90, 120].map(dur => (
+												<button
+													key={dur}
+													onClick={() => setNewTaskData({...newTaskData, duration: dur})}
+													className={`px-3 py-2 rounded-lg text-sm font-bold border transition-all ${newTaskData.duration === dur ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+												>
+													{dur}m
+												</button>
+											))}
+										</div>
+									</div>
+								</div>
+
+								<button
+									onClick={confirmCreateTask}
+									disabled={!newTaskData.name || !newTaskData.categoryId}
+									className={`w-full py-4 rounded-xl font-bold mt-4 ${(!newTaskData.name || !newTaskData.categoryId) ? 'bg-slate-800 text-slate-600' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
+								>
+									Add to Plan
+								</button>
+							</>
+						)}
 					</div>
 				)}
 			</div>
