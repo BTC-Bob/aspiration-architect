@@ -81,6 +81,7 @@ const HighlightedText = ({ text }) => {
 	);
 };
 
+// Visual Progress Indicator
 const StepProgress = ({ current, total = 4 }) => (
 	<div className="flex gap-2 px-1 flex-1 h-1.5 self-center">
 		{[...Array(total)].map((_, i) => (
@@ -158,7 +159,7 @@ const GuardianGreeting = ({ onComplete }) => {
 		const unsubscribe = onAuthStateChanged(auth, (user) => {
 			setCurrentUser(user);
 			if (user) {
-				setLoading(false); // Reset loading on auth
+				setLoading(false); // Reset loading state
 				if (step === 0) {
 					setFade(false);
 					setTimeout(() => {
@@ -204,7 +205,7 @@ const GuardianGreeting = ({ onComplete }) => {
 		} catch (error) {
 			console.error("Google Auth Error:", error);
 			setLoading(false);
-			setErrorMsg("Login failed. Check console.");
+			setErrorMsg("Login failed. Check console. If ERR_BLOCKED_BY_CLIENT, disable AdBlocker.");
 		}
 	};
 
@@ -215,7 +216,7 @@ const GuardianGreeting = ({ onComplete }) => {
 		} catch (error) {
 			console.error("Guest Auth Error:", error);
 			setLoading(false);
-			setErrorMsg("Guest mode disabled.");
+			setErrorMsg("Guest mode disabled. Check Firebase Console.");
 		}
 	};
 
@@ -293,13 +294,11 @@ const GuardianGreeting = ({ onComplete }) => {
 		setSelectedTasks(selectedTasks.filter(t => t.instanceId !== instanceId));
 	};
 
-	// --- HANDLE FINISH (The Critical Path) ---
 	const handleFinish = async () => {
 		setLoading(true);
 		setErrorMsg(null);
 		setShowForceExit(false);
 
-		// TIMEOUT: 7.0s
 		const failsafeTimer = setTimeout(() => {
 			setShowForceExit(true);
 			setDebugStatus('Taking too long? Use Force Launch below.');
@@ -311,6 +310,15 @@ const GuardianGreeting = ({ onComplete }) => {
 			if (!user) {
 				const cred = await signInAnonymously(auth);
 				user = cred.user;
+			}
+
+			// --- THE FIX: FORCE TOKEN REFRESH ---
+			// This re-establishes the secure connection often dropped by strict browsers
+			try {
+				await user.getIdToken(true);
+				setDebugStatus('1/4 Auth Refresh Success');
+			} catch (tokenErr) {
+				console.warn("Token refresh warning:", tokenErr);
 			}
 
 			setDebugStatus('2/4 Preparing Data...');
@@ -351,12 +359,11 @@ const GuardianGreeting = ({ onComplete }) => {
 
 			const cleanLog = JSON.parse(JSON.stringify(dailyLog));
 			console.log(`[Guardian] Writing to: users/${user.uid}/dailyLogs/${today}`);
-			setDebugStatus(`3/4 Writing to User DB...`);
 
+			setDebugStatus(`3/4 Writing to User DB...`);
 			const userDocRef = doc(db, 'users', user.uid, 'dailyLogs', today);
 			const writeOp = setDoc(userDocRef, cleanLog);
 
-			// RACE: 6.5s Timeout
 			const timeoutOp = new Promise((_, reject) =>
 				setTimeout(() => reject(new Error("Write Timeout (Check Browser Shields/AdBlocker)")), 6500)
 			);
@@ -382,9 +389,9 @@ const GuardianGreeting = ({ onComplete }) => {
 		}
 	};
 
-	// --- FORCE EXIT HANDLER (The Escape Hatch) ---
+	// --- FORCE EXIT HANDLER ---
 	const handleForceExit = () => {
-		// 1. Save to Local Storage as Backup (So we don't lose data)
+		// 1. Save to Local Storage as Backup
 		try {
 			const today = getFormattedDate().replace(/\//g, '-');
 			const backupLog = {
@@ -398,11 +405,11 @@ const GuardianGreeting = ({ onComplete }) => {
 			console.warn("Backup failed", e);
 		}
 
-		// 2. IMPORTANT: Do NOT reload. Call onComplete to just close the greeting.
+		// 2. BREAK THE LOOP: Do NOT reload. Call onComplete.
 		if (onComplete) {
 			onComplete();
 		} else {
-			window.location.reload(); // Fallback
+			window.location.reload();
 		}
 	};
 
