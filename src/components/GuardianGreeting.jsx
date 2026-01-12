@@ -301,14 +301,23 @@ const GuardianGreeting = ({ onComplete }) => {
 		setErrorMsg(null);
 
 		try {
-			// 1. DATA PREP
-			setDebugStatus('1/3 Packing Data...');
+			// 1. AUTH WAKE UP CALL (Missing in previous version)
+			setDebugStatus('1/4 Refreshing Auth Tunnel...');
 			let user = auth.currentUser;
 			if (!user) {
 				const cred = await signInAnonymously(auth);
 				user = cred.user;
 			}
 
+			// FORCE TOKEN REFRESH: This is the key fix for Firefox Private Mode
+			try {
+				await user.getIdToken(true);
+			} catch (e) {
+				console.warn("Auth Refresh Warning (might be offline)", e);
+			}
+
+			// 2. DATA PREP
+			setDebugStatus('2/4 Packing Data...');
 			const rawDate = getFormattedDate();
 			const today = rawDate.replace(/\//g, '-');
 
@@ -345,21 +354,20 @@ const GuardianGreeting = ({ onComplete }) => {
 			};
 			const cleanLog = JSON.parse(JSON.stringify(dailyLog));
 
-			// 2. LOCAL BACKUP (ALWAYS SUCCESSFUL)
-			setDebugStatus('2/3 Saving Local Backup...');
+			// 3. LOCAL BACKUP (ALWAYS SUCCESSFUL)
+			setDebugStatus('3/4 Saving Local Backup...');
 			try {
 				localStorage.setItem(`dailyLog_${today}_backup`, JSON.stringify(cleanLog));
-				// Also update the "Dashboard Cache" directly if needed
 				localStorage.setItem('last_known_log', JSON.stringify(cleanLog));
 			} catch (e) { console.warn("Local Backup Warning", e); }
 
-			// 3. CLOUD SYNC (BEST EFFORT)
-			setDebugStatus('3/3 Syncing to Cloud...');
+			// 4. CLOUD SYNC (BEST EFFORT)
+			setDebugStatus('4/4 Syncing to Cloud...');
 			console.log(`[Guardian] Attempting Write: users/${user.uid}/dailyLogs/${today}`);
 
 			const userDocRef = doc(db, 'users', user.uid, 'dailyLogs', today);
 
-			// We use a short timeout. If Cloud hangs, we don't care. We launch anyway.
+			// Race Condition: Cloud vs Timer
 			const writePromise = setDoc(userDocRef, cleanLog);
 			const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 4000));
 
@@ -367,10 +375,9 @@ const GuardianGreeting = ({ onComplete }) => {
 
 			if (result === 'TIMEOUT') {
 				console.warn("Cloud Sync Timeout - Launching in Offline Mode");
-				// Optional: Set a flag for "Sync Pending" logic later
 			}
 
-			// 4. LAUNCH
+			// 5. LAUNCH
 			setFade(false);
 			setTimeout(() => {
 				if (onComplete) onComplete();
@@ -378,8 +385,8 @@ const GuardianGreeting = ({ onComplete }) => {
 			}, 800);
 
 		} catch (err) {
-			// SAFETY NET: Even if code crashes, we launch.
 			console.error("IGNITE ERROR:", err);
+			// Fail open - launch anyway
 			if (onComplete) onComplete();
 			else window.location.reload();
 		}
