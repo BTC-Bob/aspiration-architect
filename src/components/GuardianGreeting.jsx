@@ -4,7 +4,7 @@ import {
 	Sun, Scale, Activity, CheckCircle, ArrowRight, Moon,
 	Calendar as CalendarIcon, Plus, Search, X, AlertCircle,
 	Settings, ShieldAlert, LogOut, Terminal, ChevronLeft,
-	Shield, ShieldCheck, User
+	Shield, ShieldCheck, User, WifiOff
 } from 'lucide-react';
 import { db, auth, googleProvider } from '../firebase';
 import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
@@ -81,7 +81,6 @@ const HighlightedText = ({ text }) => {
 	);
 };
 
-// Visual Progress Indicator
 const StepProgress = ({ current, total = 4 }) => (
 	<div className="flex gap-2 px-1 flex-1 h-1.5 self-center">
 		{[...Array(total)].map((_, i) => (
@@ -131,7 +130,6 @@ const GuardianGreeting = ({ onComplete }) => {
 	const [currentUser, setCurrentUser] = useState(null);
 
 	const [debugStatus, setDebugStatus] = useState('');
-	const [showForceExit, setShowForceExit] = useState(false);
 	const [errorMsg, setErrorMsg] = useState(null);
 
 	const [data, setData] = useState({
@@ -202,10 +200,13 @@ const GuardianGreeting = ({ onComplete }) => {
 		setLoading(true);
 		try {
 			await signInWithPopup(auth, googleProvider);
+			// FORCE RELOAD ON LOGIN: This replicates the "Finance App" stability
+			// by forcing a clean environment connection immediately after auth.
+			window.location.reload();
 		} catch (error) {
 			console.error("Google Auth Error:", error);
 			setLoading(false);
-			setErrorMsg("Login failed. Check console. If ERR_BLOCKED_BY_CLIENT, disable AdBlocker.");
+			setErrorMsg("Login failed. Check console.");
 		}
 	};
 
@@ -216,7 +217,7 @@ const GuardianGreeting = ({ onComplete }) => {
 		} catch (error) {
 			console.error("Guest Auth Error:", error);
 			setLoading(false);
-			setErrorMsg("Guest mode disabled. Check Firebase Console.");
+			setErrorMsg("Guest mode disabled.");
 		}
 	};
 
@@ -294,34 +295,20 @@ const GuardianGreeting = ({ onComplete }) => {
 		setSelectedTasks(selectedTasks.filter(t => t.instanceId !== instanceId));
 	};
 
+	// --- ANTI-FRAGILE LAUNCH LOGIC ---
 	const handleFinish = async () => {
 		setLoading(true);
 		setErrorMsg(null);
-		setShowForceExit(false);
-
-		const failsafeTimer = setTimeout(() => {
-			setShowForceExit(true);
-			setDebugStatus('Taking too long? Use Force Launch below.');
-		}, 7000);
 
 		try {
-			setDebugStatus('1/4 Verifying Auth...');
+			// 1. DATA PREP
+			setDebugStatus('1/3 Packing Data...');
 			let user = auth.currentUser;
 			if (!user) {
 				const cred = await signInAnonymously(auth);
 				user = cred.user;
 			}
 
-			// --- THE FIX: FORCE TOKEN REFRESH ---
-			// This re-establishes the secure connection often dropped by strict browsers
-			try {
-				await user.getIdToken(true);
-				setDebugStatus('1/4 Auth Refresh Success');
-			} catch (tokenErr) {
-				console.warn("Token refresh warning:", tokenErr);
-			}
-
-			setDebugStatus('2/4 Preparing Data...');
 			const rawDate = getFormattedDate();
 			const today = rawDate.replace(/\//g, '-');
 
@@ -356,60 +343,45 @@ const GuardianGreeting = ({ onComplete }) => {
 					completionBonus: p.completionBonus || 0
 				}))
 			};
-
 			const cleanLog = JSON.parse(JSON.stringify(dailyLog));
-			console.log(`[Guardian] Writing to: users/${user.uid}/dailyLogs/${today}`);
 
-			setDebugStatus(`3/4 Writing to User DB...`);
+			// 2. LOCAL BACKUP (ALWAYS SUCCESSFUL)
+			setDebugStatus('2/3 Saving Local Backup...');
+			try {
+				localStorage.setItem(`dailyLog_${today}_backup`, JSON.stringify(cleanLog));
+				// Also update the "Dashboard Cache" directly if needed
+				localStorage.setItem('last_known_log', JSON.stringify(cleanLog));
+			} catch (e) { console.warn("Local Backup Warning", e); }
+
+			// 3. CLOUD SYNC (BEST EFFORT)
+			setDebugStatus('3/3 Syncing to Cloud...');
+			console.log(`[Guardian] Attempting Write: users/${user.uid}/dailyLogs/${today}`);
+
 			const userDocRef = doc(db, 'users', user.uid, 'dailyLogs', today);
-			const writeOp = setDoc(userDocRef, cleanLog);
 
-			const timeoutOp = new Promise((_, reject) =>
-				setTimeout(() => reject(new Error("Write Timeout (Check Browser Shields/AdBlocker)")), 6500)
-			);
+			// We use a short timeout. If Cloud hangs, we don't care. We launch anyway.
+			const writePromise = setDoc(userDocRef, cleanLog);
+			const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 4000));
 
-			await Promise.race([writeOp, timeoutOp]);
+			const result = await Promise.race([writePromise, timeoutPromise]);
 
-			clearTimeout(failsafeTimer);
-			setDebugStatus('4/4 Success! Launching...');
+			if (result === 'TIMEOUT') {
+				console.warn("Cloud Sync Timeout - Launching in Offline Mode");
+				// Optional: Set a flag for "Sync Pending" logic later
+			}
+
+			// 4. LAUNCH
 			setFade(false);
-
 			setTimeout(() => {
 				if (onComplete) onComplete();
 				else window.location.reload();
 			}, 800);
 
 		} catch (err) {
-			clearTimeout(failsafeTimer);
+			// SAFETY NET: Even if code crashes, we launch.
 			console.error("IGNITE ERROR:", err);
-			setLoading(false);
-			setDebugStatus('FAILED: ' + err.message);
-			setErrorMsg(err.message);
-			setShowForceExit(true);
-		}
-	};
-
-	// --- FORCE EXIT HANDLER ---
-	const handleForceExit = () => {
-		// 1. Save to Local Storage as Backup
-		try {
-			const today = getFormattedDate().replace(/\//g, '-');
-			const backupLog = {
-				date: today,
-				note: "Forced Local Backup",
-				plannedTasks: { core: selectedTasks, flex: [] }
-			};
-			localStorage.setItem(`dailyLog_${today}_backup`, JSON.stringify(backupLog));
-			console.log("Forced Backup Saved to LocalStorage");
-		} catch (e) {
-			console.warn("Backup failed", e);
-		}
-
-		// 2. BREAK THE LOOP: Do NOT reload. Call onComplete.
-		if (onComplete) {
-			onComplete();
-		} else {
-			window.location.reload();
+			if (onComplete) onComplete();
+			else window.location.reload();
 		}
 	};
 
@@ -680,18 +652,9 @@ const GuardianGreeting = ({ onComplete }) => {
 
 					{errorMsg && (
 						<div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 text-xs font-bold">
-							<ShieldAlert size={16} />
+							<AlertCircle size={16} />
 							<span className="flex-1">{errorMsg}</span>
 						</div>
-					)}
-
-					{showForceExit && (
-						<button
-							onClick={handleForceExit}
-							className="w-full mb-3 py-3 rounded-xl font-bold bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center gap-2 text-sm border border-slate-700"
-						>
-							<LogOut size={16} /> FORCE LAUNCH DASHBOARD (SKIP SAVE)
-						</button>
 					)}
 
 					<div className="flex gap-3">
