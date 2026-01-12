@@ -33,7 +33,6 @@ const STATIC_CATEGORIES = [
 	{ id: 'cat_admin', name: 'Admin / Errands', dist: { l: 0.4, h: 0.2, f: 0.4 }, tier: 'maintenance' }
 ];
 
-// FALLBACK PROTOCOLS (Ensures list is never empty)
 const STATIC_PROTOCOLS = [
 	{ id: 'protocol_morning', name: 'Morning Protocol', icon: '☀', habitIds: ['make_bed', 'hydrate', 'prayer'], completionBonus: 5 },
 	{ id: 'protocol_evening', name: 'Evening Protocol', icon: '☾', habitIds: ['shutdown', 'reflect'], completionBonus: 5 }
@@ -98,7 +97,6 @@ const StepProgress = ({ current, total = 4 }) => (
 	</div>
 );
 
-// Auth Badge (Responsive & Inline)
 const AuthBadge = ({ user }) => {
 	if (!user) return (
 		<div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-full mb-4 self-end">
@@ -156,26 +154,24 @@ const GuardianGreeting = ({ onComplete }) => {
 	const [isCreatingNew, setIsCreatingNew] = useState(false);
 	const [newTaskData, setNewTaskData] = useState({ name: '', categoryId: '', duration: 30 });
 
-	// AUTH LISTENER
+	// Auth Listener
 	useEffect(() => {
 		const unsubscribe = onAuthStateChanged(auth, (user) => {
 			setCurrentUser(user);
-			if (user) {
-				if (step === 0) {
-					setFade(false);
-					setTimeout(() => {
-						setStep(1);
-						setFade(true);
-					}, 500);
-				}
-			} else {
-				if (step === 0) setLoading(false);
+			if (user && step === 0) {
+				setFade(false);
+				setTimeout(() => {
+					setStep(1);
+					setFade(true);
+				}, 500);
+			} else if (!user && step === 0) {
+				setLoading(false);
 			}
 		});
 		return () => unsubscribe();
 	}, [step]);
 
-	// LOAD LIBRARY
+	// Load Data
 	useEffect(() => {
 		const fetchLibrary = async () => {
 			try {
@@ -186,15 +182,13 @@ const GuardianGreeting = ({ onComplete }) => {
 				const protocolsSnap = await getDocs(collection(db, 'protocols'));
 				let protocolsList = protocolsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-				// CRITICAL FIX: Fallback to STATIC if DB is empty to prevent blank screens
 				if (protocolsList.length === 0) protocolsList = STATIC_PROTOCOLS;
-
 				setAllProtocols(protocolsList);
-				setActiveProtocols(protocolsList); // Auto-select for today
+				setActiveProtocols(protocolsList);
 
 			} catch (err) {
 				console.error("Error loading library:", err);
-				setAllProtocols(STATIC_PROTOCOLS); // Fail safe
+				setAllProtocols(STATIC_PROTOCOLS);
 				setActiveProtocols(STATIC_PROTOCOLS);
 			}
 		};
@@ -304,26 +298,26 @@ const GuardianGreeting = ({ onComplete }) => {
 
 		const failsafeTimer = setTimeout(() => {
 			setShowForceExit(true);
-			setDebugStatus('Connection unstable. Use Force Launch below.');
-		}, 3000);
+			setDebugStatus('Taking too long? Use Force Launch below.');
+		}, 4000);
 
 		try {
-			setDebugStatus('1/4 Authenticating...');
-			if (auth && !auth.currentUser) {
-				try {
-					await signInAnonymously(auth);
-					setDebugStatus('1/4 Auth Success');
-				} catch (authErr) {
-					console.warn("Auth check failed, attempting write anyway.");
-				}
+			setDebugStatus('1/4 Verifying Auth...');
+			let user = auth.currentUser;
+			if (!user) {
+				// Last ditch auth attempt if session lapsed
+				const cred = await signInAnonymously(auth);
+				user = cred.user;
 			}
 
-			setDebugStatus('2/4 Packing Payload...');
+			setDebugStatus('2/4 Preparing Data...');
 			const today = getFormattedDate();
 
-			const dailyLogRaw = {
+			// DATA CONSTRUCTION
+			const dailyLog = {
 				date: today,
 				createdAt: new Date().toISOString(),
+				userId: user.uid, // Explicit Owner Link
 				physiology: {
 					sleepScore: parseInt(data.sleepScore) || 0,
 					weight: parseFloat(data.weight) || 0
@@ -351,27 +345,41 @@ const GuardianGreeting = ({ onComplete }) => {
 					completionBonus: p.completionBonus || 0
 				}))
 			};
-			const dailyLogClean = JSON.parse(JSON.stringify(dailyLogRaw));
 
-			setDebugStatus(`3/4 Writing to dailyLogs/${today}...`);
-			const writePromise = setDoc(doc(db, 'dailyLogs', today), dailyLogClean);
-			const timeoutPromise = new Promise((_, reject) =>
-				setTimeout(() => reject(new Error("Database Timeout")), 3000)
+			// CRITICAL FIX: Path Alignment
+			// Writing to users/{uid}/dailyLogs/{date} to match Security Rules
+			setDebugStatus(`3/4 Writing to User DB...`);
+
+			const userDocRef = doc(db, 'users', user.uid, 'dailyLogs', today);
+			const cleanLog = JSON.parse(JSON.stringify(dailyLog));
+
+			const writeOp = setDoc(userDocRef, cleanLog);
+
+			// Also write to root for legacy/debug (optional, can remove if rules block it)
+			// const rootDocRef = doc(db, 'dailyLogs', today);
+			// setDoc(rootDocRef, cleanLog).catch(e => console.warn("Root write skipped", e));
+
+			const timeoutOp = new Promise((_, reject) =>
+				setTimeout(() => reject(new Error("Write Timeout")), 3500)
 			);
 
-			await Promise.race([writePromise, timeoutPromise]);
+			await Promise.race([writeOp, timeoutOp]);
 
+			// SUCCESS
 			clearTimeout(failsafeTimer);
-			setDebugStatus('4/4 DONE. Launching...');
+			setDebugStatus('4/4 Success! Launching...');
 			setFade(false);
+
+			// WAIT for Dashboard to Mount
 			setTimeout(() => {
 				window.location.reload();
-			}, 500);
+			}, 800);
 
 		} catch (err) {
 			clearTimeout(failsafeTimer);
+			console.error("IGNITE ERROR:", err);
 			setLoading(false);
-			setDebugStatus(`FAILED: ${err.message}`);
+			setDebugStatus('FAILED: ' + err.message);
 			setErrorMsg(err.message);
 			setShowForceExit(true);
 		}
@@ -430,9 +438,8 @@ const GuardianGreeting = ({ onComplete }) => {
 		<div className={`fixed inset-0 z-50 bg-[#050914] flex items-center justify-center p-4 transition-opacity duration-700 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-4xl w-full flex flex-col h-[90vh] md:h-[85vh] relative">
 
-				{/* FLEX HEADER (Fixes Overlap) */}
 				<div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 flex-none">
-					<div className="hidden md:block w-32"></div> {/* Spacer for center alignment */}
+					<div className="hidden md:block w-32"></div>
 					<div className="inline-flex items-center gap-2 bg-blue-900/20 border border-blue-500/30 px-4 py-1.5 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.3)] backdrop-blur-md">
 						<Sun size={14} className="text-blue-400" />
 						<span className="text-blue-300 text-xs font-bold uppercase tracking-[0.2em]">The Architect's Ignition</span>
@@ -455,7 +462,6 @@ const GuardianGreeting = ({ onComplete }) => {
 				</div>
 
 				<div className="flex-none text-center">
-					{/* Integrated Progress into Footer */}
 					<div className="flex justify-center mb-4 max-w-xs mx-auto">
 						<StepProgress current={1} />
 					</div>
@@ -472,7 +478,6 @@ const GuardianGreeting = ({ onComplete }) => {
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative flex flex-col">
 
-				{/* FLEX HEADER (Fixes Overlap) */}
 				<div className="flex justify-between items-center gap-4 mb-6">
 					<StepProgress current={2} />
 					<AuthBadge user={currentUser} />
@@ -512,7 +517,6 @@ const GuardianGreeting = ({ onComplete }) => {
 		<div className={`fixed inset-0 z-50 bg-[#0B1120] flex items-center justify-center p-6 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
 			<div className="max-w-md w-full bg-[#0f1522] border border-slate-800 rounded-3xl p-8 shadow-2xl relative flex flex-col">
 
-				{/* FLEX HEADER */}
 				<div className="flex justify-between items-center gap-4 mb-6">
 					<StepProgress current={3} />
 					<AuthBadge user={currentUser} />
@@ -639,6 +643,7 @@ const GuardianGreeting = ({ onComplete }) => {
 				</div>
 
 				<div className="mt-6 pt-6 border-t border-slate-800">
+					{/* DEBUG & ERROR STATUS */}
 					<div className="mb-2 text-center">
 						<span className={`text-[10px] font-mono tracking-wider flex items-center justify-center gap-2 ${errorMsg ? 'text-red-400' : 'text-slate-500'}`}>
 							{debugStatus && <Terminal size={10} />} {debugStatus}
