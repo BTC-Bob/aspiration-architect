@@ -158,7 +158,7 @@ const GuardianGreeting = ({ onComplete }) => {
 		const unsubscribe = onAuthStateChanged(auth, (user) => {
 			setCurrentUser(user);
 			if (user) {
-				// BUG FIX: Reset loading state if we are successfully logged in
+				// FIX: Reset loading state to prevent "Premature Igniting"
 				setLoading(false);
 
 				if (step === 0) {
@@ -300,11 +300,11 @@ const GuardianGreeting = ({ onComplete }) => {
 		setErrorMsg(null);
 		setShowForceExit(false);
 
-		// TIMEOUT: 5.0s
+		// TIMEOUT: 7.0s
 		const failsafeTimer = setTimeout(() => {
 			setShowForceExit(true);
 			setDebugStatus('Taking too long? Use Force Launch below.');
-		}, 5000);
+		}, 7000);
 
 		try {
 			setDebugStatus('1/4 Verifying Auth...');
@@ -315,7 +315,9 @@ const GuardianGreeting = ({ onComplete }) => {
 			}
 
 			setDebugStatus('2/4 Preparing Data...');
-			const today = getFormattedDate();
+			const rawDate = getFormattedDate();
+			// CRITICAL FIX: Sanitize date (replace slashes with dashes) to prevents nesting errors
+			const today = rawDate.replace(/\//g, '-');
 
 			const dailyLog = {
 				date: today,
@@ -351,15 +353,15 @@ const GuardianGreeting = ({ onComplete }) => {
 
 			const cleanLog = JSON.parse(JSON.stringify(dailyLog));
 
+			console.log(`[Guardian] Writing to: users/${user.uid}/dailyLogs/${today}`);
 			setDebugStatus(`3/4 Writing to User DB...`);
 
-			// FIX: Write to users/{uid}/dailyLogs/{date}
 			const userDocRef = doc(db, 'users', user.uid, 'dailyLogs', today);
 			const writeOp = setDoc(userDocRef, cleanLog);
 
-			// RACE: 4.5s Timeout
+			// RACE: 6.5s Timeout
 			const timeoutOp = new Promise((_, reject) =>
-				setTimeout(() => reject(new Error("Write Timeout (Check Browser Shields/AdBlocker)")), 4500)
+				setTimeout(() => reject(new Error("Write Timeout (Check Browser Shields/AdBlocker)")), 6500)
 			);
 
 			await Promise.race([writeOp, timeoutOp]);
