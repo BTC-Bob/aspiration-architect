@@ -158,7 +158,7 @@ const GuardianGreeting = ({ onComplete }) => {
 		const unsubscribe = onAuthStateChanged(auth, (user) => {
 			setCurrentUser(user);
 			if (user) {
-				setLoading(false); // Fix premature loading
+				setLoading(false); // Reset loading on auth
 				if (step === 0) {
 					setFade(false);
 					setTimeout(() => {
@@ -293,26 +293,29 @@ const GuardianGreeting = ({ onComplete }) => {
 		setSelectedTasks(selectedTasks.filter(t => t.instanceId !== instanceId));
 	};
 
-	// --- FINAL LAUNCH LOGIC ---
+	// --- HANDLE FINISH (The Critical Path) ---
 	const handleFinish = async () => {
 		setLoading(true);
 		setErrorMsg(null);
 		setShowForceExit(false);
 
+		// TIMEOUT: 7.0s
 		const failsafeTimer = setTimeout(() => {
 			setShowForceExit(true);
 			setDebugStatus('Taking too long? Use Force Launch below.');
 		}, 7000);
 
 		try {
+			setDebugStatus('1/4 Verifying Auth...');
 			let user = auth.currentUser;
 			if (!user) {
 				const cred = await signInAnonymously(auth);
 				user = cred.user;
 			}
 
-			// Sanitize Date
-			const today = getFormattedDate().replace(/\//g, '-');
+			setDebugStatus('2/4 Preparing Data...');
+			const rawDate = getFormattedDate();
+			const today = rawDate.replace(/\//g, '-');
 
 			const dailyLog = {
 				date: today,
@@ -348,22 +351,23 @@ const GuardianGreeting = ({ onComplete }) => {
 
 			const cleanLog = JSON.parse(JSON.stringify(dailyLog));
 			console.log(`[Guardian] Writing to: users/${user.uid}/dailyLogs/${today}`);
+			setDebugStatus(`3/4 Writing to User DB...`);
 
-			// WRITE TO DB
 			const userDocRef = doc(db, 'users', user.uid, 'dailyLogs', today);
 			const writeOp = setDoc(userDocRef, cleanLog);
 
+			// RACE: 6.5s Timeout
 			const timeoutOp = new Promise((_, reject) =>
-				setTimeout(() => reject(new Error("Write Timeout (Check Browser Shields)")), 6500)
+				setTimeout(() => reject(new Error("Write Timeout (Check Browser Shields/AdBlocker)")), 6500)
 			);
 
 			await Promise.race([writeOp, timeoutOp]);
 
-			// SUCCESS
 			clearTimeout(failsafeTimer);
+			setDebugStatus('4/4 Success! Launching...');
 			setFade(false);
+
 			setTimeout(() => {
-				// CALL PARENT TO CLOSE GREETING
 				if (onComplete) onComplete();
 				else window.location.reload();
 			}, 800);
@@ -372,14 +376,15 @@ const GuardianGreeting = ({ onComplete }) => {
 			clearTimeout(failsafeTimer);
 			console.error("IGNITE ERROR:", err);
 			setLoading(false);
+			setDebugStatus('FAILED: ' + err.message);
 			setErrorMsg(err.message);
 			setShowForceExit(true);
 		}
 	};
 
-	// --- FORCE EXIT HANDLER ---
+	// --- FORCE EXIT HANDLER (The Escape Hatch) ---
 	const handleForceExit = () => {
-		// 1. Save to Local Storage as Backup
+		// 1. Save to Local Storage as Backup (So we don't lose data)
 		try {
 			const today = getFormattedDate().replace(/\//g, '-');
 			const backupLog = {
@@ -393,12 +398,11 @@ const GuardianGreeting = ({ onComplete }) => {
 			console.warn("Backup failed", e);
 		}
 
-		// 2. BREAK THE LOOP: Do NOT reload. Call the parent completion handler.
+		// 2. IMPORTANT: Do NOT reload. Call onComplete to just close the greeting.
 		if (onComplete) {
 			onComplete();
 		} else {
-			// Fallback if no parent handler (rare)
-			window.location.reload();
+			window.location.reload(); // Fallback
 		}
 	};
 
