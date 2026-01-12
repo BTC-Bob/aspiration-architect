@@ -158,14 +158,16 @@ const GuardianGreeting = ({ onComplete }) => {
 	useEffect(() => {
 		const unsubscribe = onAuthStateChanged(auth, (user) => {
 			setCurrentUser(user);
-			if (user && step === 0) {
-				setFade(false);
-				setTimeout(() => {
-					setStep(1);
-					setFade(true);
-				}, 500);
-			} else if (!user && step === 0) {
-				setLoading(false);
+			if (user) {
+				if (step === 0) {
+					setFade(false);
+					setTimeout(() => {
+						setStep(1);
+						setFade(true);
+					}, 500);
+				}
+			} else {
+				if (step === 0) setLoading(false);
 			}
 		});
 		return () => unsubscribe();
@@ -202,7 +204,7 @@ const GuardianGreeting = ({ onComplete }) => {
 		} catch (error) {
 			console.error("Google Auth Error:", error);
 			setLoading(false);
-			setErrorMsg("Login failed. Please verify Authorized Origins in Google Cloud Console.");
+			setErrorMsg("Login failed. Check console. If ERR_BLOCKED_BY_CLIENT, disable AdBlocker.");
 		}
 	};
 
@@ -296,16 +298,16 @@ const GuardianGreeting = ({ onComplete }) => {
 		setErrorMsg(null);
 		setShowForceExit(false);
 
+		// TIMEOUT: 5.0s
 		const failsafeTimer = setTimeout(() => {
 			setShowForceExit(true);
 			setDebugStatus('Taking too long? Use Force Launch below.');
-		}, 4000);
+		}, 5000);
 
 		try {
 			setDebugStatus('1/4 Verifying Auth...');
 			let user = auth.currentUser;
 			if (!user) {
-				// Last ditch auth attempt if session lapsed
 				const cred = await signInAnonymously(auth);
 				user = cred.user;
 			}
@@ -313,11 +315,10 @@ const GuardianGreeting = ({ onComplete }) => {
 			setDebugStatus('2/4 Preparing Data...');
 			const today = getFormattedDate();
 
-			// DATA CONSTRUCTION
 			const dailyLog = {
 				date: today,
 				createdAt: new Date().toISOString(),
-				userId: user.uid, // Explicit Owner Link
+				userId: user.uid,
 				physiology: {
 					sleepScore: parseInt(data.sleepScore) || 0,
 					weight: parseFloat(data.weight) || 0
@@ -346,31 +347,25 @@ const GuardianGreeting = ({ onComplete }) => {
 				}))
 			};
 
-			// CRITICAL FIX: Path Alignment
-			// Writing to users/{uid}/dailyLogs/{date} to match Security Rules
-			setDebugStatus(`3/4 Writing to User DB...`);
-
-			const userDocRef = doc(db, 'users', user.uid, 'dailyLogs', today);
 			const cleanLog = JSON.parse(JSON.stringify(dailyLog));
 
+			setDebugStatus(`3/4 Writing to User DB...`);
+
+			// FIX: Write to users/{uid}/dailyLogs/{date}
+			const userDocRef = doc(db, 'users', user.uid, 'dailyLogs', today);
 			const writeOp = setDoc(userDocRef, cleanLog);
 
-			// Also write to root for legacy/debug (optional, can remove if rules block it)
-			// const rootDocRef = doc(db, 'dailyLogs', today);
-			// setDoc(rootDocRef, cleanLog).catch(e => console.warn("Root write skipped", e));
-
+			// RACE: 4.5s Timeout
 			const timeoutOp = new Promise((_, reject) =>
-				setTimeout(() => reject(new Error("Write Timeout")), 3500)
+				setTimeout(() => reject(new Error("Write Timeout (Check AdBlocker)")), 4500)
 			);
 
 			await Promise.race([writeOp, timeoutOp]);
 
-			// SUCCESS
 			clearTimeout(failsafeTimer);
 			setDebugStatus('4/4 Success! Launching...');
 			setFade(false);
 
-			// WAIT for Dashboard to Mount
 			setTimeout(() => {
 				window.location.reload();
 			}, 800);
