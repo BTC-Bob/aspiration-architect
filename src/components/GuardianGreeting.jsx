@@ -81,7 +81,6 @@ const HighlightedText = ({ text }) => {
 	);
 };
 
-// Visual Progress Indicator
 const StepProgress = ({ current, total = 4 }) => (
 	<div className="flex gap-2 px-1 flex-1 h-1.5 self-center">
 		{[...Array(total)].map((_, i) => (
@@ -159,6 +158,9 @@ const GuardianGreeting = ({ onComplete }) => {
 		const unsubscribe = onAuthStateChanged(auth, (user) => {
 			setCurrentUser(user);
 			if (user) {
+				// BUG FIX: Reset loading state if we are successfully logged in
+				setLoading(false);
+
 				if (step === 0) {
 					setFade(false);
 					setTimeout(() => {
@@ -357,7 +359,7 @@ const GuardianGreeting = ({ onComplete }) => {
 
 			// RACE: 4.5s Timeout
 			const timeoutOp = new Promise((_, reject) =>
-				setTimeout(() => reject(new Error("Write Timeout (Check AdBlocker)")), 4500)
+				setTimeout(() => reject(new Error("Write Timeout (Check Browser Shields/AdBlocker)")), 4500)
 			);
 
 			await Promise.race([writeOp, timeoutOp]);
@@ -402,7 +404,7 @@ const GuardianGreeting = ({ onComplete }) => {
 						disabled={loading}
 						className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center gap-3"
 					>
-						<User size={20} /> Login with Google
+						<User size={20} /> {loading ? 'Authenticating...' : 'Login with Google'}
 					</button>
 
 					<div className="relative py-2">
