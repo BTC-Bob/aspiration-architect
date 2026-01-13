@@ -34,13 +34,13 @@ const Dashboard = () => {
 	const [flexTasks, setFlexTasks] = useState([]);
 	const [protocols, setProtocols] = useState([]);
 
-	// Pillar Stats (Calculated from Tasks)
+	// Pillar Stats
 	const [stats, setStats] = useState({
 		love: 0, health: 0, freedom: 0,
 		total: 0, target: 75
 	});
 
-	// Mock Schedule (Placeholder for Google Calendar API)
+	// Mock Schedule
 	const schedule = [
 		{ id: 1, time: '2:00 PM', title: 'Deep Work Session' }
 	];
@@ -56,7 +56,7 @@ const Dashboard = () => {
 				const parsed = JSON.parse(localBackup);
 				loadDashboardFromData(parsed);
 				setDataSource('Local Backup');
-				setIsOfflineMode(true); // Default to offline until cloud confirms
+				setIsOfflineMode(true);
 				setLoading(false);
 			} catch (e) { console.warn("Local backup corrupted"); }
 		}
@@ -75,7 +75,6 @@ const Dashboard = () => {
 					}
 				}, (err) => {
 					console.warn("Cloud Blocked:", err.message);
-					// Keep using local data
 				});
 				return () => unsubSnapshot();
 			} else {
@@ -98,25 +97,18 @@ const Dashboard = () => {
 		setFlexTasks(flex);
 		setProtocols(protos);
 
-		// CALCULATE PILLAR VALUES FROM PLANNED TASKS
-		// (In a real app, this would sum *completed* tasks, but for initial display we show potential)
 		let newStats = { love: 0, health: 0, freedom: 0, total: 0, target: 75 };
-
 		[...core, ...flex].forEach(task => {
-			// If task has explicit distribution (from Library), use it
 			if (task.pillarDistribution) {
-				newStats.love += (task.pillarDistribution.l || 0) * (task.duration/30 * 5); // Rough calc
+				newStats.love += (task.pillarDistribution.l || 0) * (task.duration/30 * 5);
 				newStats.health += (task.pillarDistribution.h || 0) * (task.duration/30 * 5);
 				newStats.freedom += (task.pillarDistribution.f || 0) * (task.duration/30 * 5);
 			} else {
-				// Fallback based on category string matching
 				if (task.categoryId?.includes('spiritual') || task.categoryId?.includes('relationship')) newStats.love += 5;
 				else if (task.categoryId?.includes('exercise') || task.categoryId?.includes('sleep')) newStats.health += 5;
 				else newStats.freedom += 5;
 			}
 		});
-
-		// Normalize for Gauge Display (just for visuals)
 		newStats.total = newStats.love + newStats.health + newStats.freedom;
 		setStats(newStats);
 	};
@@ -160,8 +152,9 @@ const Dashboard = () => {
 						<span className="bg-slate-800/50 px-2 py-0.5 rounded text-xs border border-slate-700 text-slate-400">Day {dayNumber}</span>
 						<span className="text-slate-600">•</span>
 						<span className="text-slate-400 text-xs">{currentDate}</span>
+						{/* LOCAL MODE BADGE */}
 						{isOfflineMode && (
-							<span className="flex items-center gap-1 text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20" title="Reading from Local Storage">
+							<span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 tracking-wide uppercase" title="Data read from Local Storage (Browser Privacy Enabled)">
 								<Database size={10} /> LOCAL MODE
 							</span>
 						)}
@@ -202,7 +195,7 @@ const Dashboard = () => {
 			<div className="flex-1 min-h-0 p-4 md:p-8 overflow-y-auto custom-scrollbar">
 				<div className="max-w-7xl mx-auto flex flex-col gap-8">
 
-					{/* --- PILLAR GAUGES (Restored) --- */}
+					{/* --- PILLAR GAUGES --- */}
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 						<ArcGauge
 							value={stats.love} max={25} color="#ef4444" label="LOVE & FAMILY" subLabel="Status"
@@ -223,8 +216,12 @@ const Dashboard = () => {
 
 						{/* LEFT: CORE 3 */}
 						<div className="lg:col-span-7 flex flex-col gap-6">
-							<div className="flex items-center gap-2 pb-2 border-b border-slate-800">
-								<div className="p-1.5 bg-blue-500/10 rounded text-blue-400"><Zap size={16} /></div>
+
+							{/* HEADER: Boxed Style */}
+							<div className="flex items-center gap-3 pb-3 border-b border-slate-800">
+								<div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+									<Zap size={18} />
+								</div>
 								<h2 className="text-sm font-bold text-white uppercase tracking-widest">Core Priorities</h2>
 							</div>
 
@@ -242,13 +239,17 @@ const Dashboard = () => {
 														<span className="text-xs font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded uppercase tracking-wider">
 															{task.valueTier}
 														</span>
-														{task.duration && (
-															<span className="text-xs text-slate-500 font-medium">
-																{task.duration}m
+														{task.category && (
+															<span className="text-xs text-slate-500 font-medium bg-slate-800/50 px-2 py-0.5 rounded">
+																{task.category}
 															</span>
 														)}
 													</div>
 												</div>
+											</div>
+											<div className="text-right">
+												<div className="text-xl font-bold text-slate-200 font-mono">{task.duration}m</div>
+												<div className="text-[10px] font-bold text-slate-500 uppercase">Duration</div>
 											</div>
 										</div>
 									</div>
@@ -268,37 +269,50 @@ const Dashboard = () => {
 
 						{/* RIGHT: PROTOCOLS & FLEX */}
 						<div className="lg:col-span-5 flex flex-col gap-8">
-							<div className="bg-[#0f1522] border border-slate-800 rounded-2xl p-5 shadow-lg">
-								<div className="flex items-center justify-between mb-4">
-									<h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-										<Repeat size={14} /> Active Protocols
-									</h3>
+
+							{/* PROTOCOLS SECTION */}
+							<div>
+								{/* HEADER: Matched to Core Priorities (Outside Card) */}
+								<div className="flex items-center gap-3 pb-3 border-b border-slate-800 mb-4">
+									<div className="p-2 bg-slate-800/80 rounded-lg text-slate-400">
+										<Repeat size={18} />
+									</div>
+									<h3 className="text-sm font-bold text-white uppercase tracking-widest">Active Protocols</h3>
 								</div>
-								<div className="flex flex-col gap-2">
-									{protocols.length > 0 ? protocols.map((proto, i) => (
-										<div key={i} className="bg-[#1A2435]/50 border border-slate-700/50 p-3 rounded-xl flex items-center justify-between hover:bg-[#1A2435] transition-colors cursor-pointer">
-											<div className="flex items-center gap-3">
-												<div className="text-xl">{proto.icon || '⚡'}</div>
-												<div>
-													<div className="text-sm font-bold text-slate-200">{proto.name}</div>
-													<div className="w-24 h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
-														<div className="h-full bg-blue-500 w-[10%]"></div>
+
+								{/* CONTENT CARD */}
+								<div className="bg-[#0f1522] border border-slate-800 rounded-2xl p-2 shadow-lg">
+									<div className="flex flex-col gap-1">
+										{protocols.length > 0 ? protocols.map((proto, i) => (
+											<div key={i} className="bg-[#1A2435]/50 border border-slate-700/50 p-3 rounded-xl flex items-center justify-between hover:bg-[#1A2435] transition-colors cursor-pointer">
+												<div className="flex items-center gap-3">
+													<div className="text-xl">{proto.icon || '⚡'}</div>
+													<div>
+														<div className="text-sm font-bold text-slate-200">{proto.name}</div>
+														<div className="w-24 h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
+															<div className="h-full bg-blue-500 w-[10%]"></div>
+														</div>
 													</div>
 												</div>
+												<div className="text-xs font-bold text-slate-500">0/{proto.totalHabits}</div>
 											</div>
-											<div className="text-xs font-bold text-slate-500">0/{proto.totalHabits}</div>
-										</div>
-									)) : (
-										<div className="text-xs text-slate-500 italic p-2 text-center">No protocols active.</div>
-									)}
+										)) : (
+											<div className="text-xs text-slate-500 italic p-4 text-center">No protocols active.</div>
+										)}
+									</div>
 								</div>
 							</div>
 
+							{/* FLEX TASKS SECTION */}
 							<div>
-								<div className="flex items-center gap-2 mb-3">
-									<Activity size={14} className="text-amber-500" />
-									<h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Flex Tasks</h3>
+								{/* HEADER: Matched Style */}
+								<div className="flex items-center gap-3 pb-3 border-b border-slate-800 mb-4">
+									<div className="p-2 bg-amber-500/10 rounded-lg text-amber-500">
+										<Activity size={18} />
+									</div>
+									<h3 className="text-sm font-bold text-white uppercase tracking-widest">Flex Tasks</h3>
 								</div>
+
 								<div className="flex flex-col gap-2">
 									{flexTasks.length > 0 ? flexTasks.map((task, i) => (
 										<div key={i} className="flex items-center gap-3 p-3 border border-slate-800 rounded-lg hover:border-slate-700 hover:bg-[#1A2435]/30 transition-colors cursor-pointer bg-[#0f1522]">
@@ -307,12 +321,12 @@ const Dashboard = () => {
 											<span className="ml-auto text-xs text-slate-500 font-mono">{task.duration}m</span>
 										</div>
 									)) : (
-										<div className="text-xs text-slate-600 italic p-2 text-center border border-dashed border-slate-800 rounded-lg">No flex tasks.</div>
+										<div className="text-xs text-slate-600 italic p-4 text-center border-2 border-dashed border-slate-800 rounded-xl">No flex tasks.</div>
 									)}
 								</div>
 							</div>
-						</div>
 
+						</div>
 					</div>
 				</div>
 			</div>
