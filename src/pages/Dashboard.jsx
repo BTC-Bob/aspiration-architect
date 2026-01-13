@@ -56,7 +56,7 @@ const Dashboard = () => {
 				const parsed = JSON.parse(localBackup);
 				loadDashboardFromData(parsed);
 				setDataSource('Local Backup');
-				setIsOfflineMode(true);
+				setIsOfflineMode(true); // Force badge visible initially
 				setLoading(false);
 			} catch (e) { console.warn("Local backup corrupted"); }
 		}
@@ -75,6 +75,8 @@ const Dashboard = () => {
 					}
 				}, (err) => {
 					console.warn("Cloud Blocked:", err.message);
+					// If error occurs, ensure offline mode stays TRUE
+					if (localBackup) setIsOfflineMode(true);
 				});
 				return () => unsubSnapshot();
 			} else {
@@ -152,9 +154,10 @@ const Dashboard = () => {
 						<span className="bg-slate-800/50 px-2 py-0.5 rounded text-xs border border-slate-700 text-slate-400">Day {dayNumber}</span>
 						<span className="text-slate-600">•</span>
 						<span className="text-slate-400 text-xs">{currentDate}</span>
-						{/* LOCAL MODE BADGE */}
+
+						{/* RESTORED: LOCAL MODE BADGE */}
 						{isOfflineMode && (
-							<span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 tracking-wide uppercase" title="Data read from Local Storage (Browser Privacy Enabled)">
+							<span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 tracking-wide uppercase" title="Data read from Local Storage">
 								<Database size={10} /> LOCAL MODE
 							</span>
 						)}
@@ -217,7 +220,7 @@ const Dashboard = () => {
 						{/* LEFT: CORE 3 */}
 						<div className="lg:col-span-7 flex flex-col gap-6">
 
-							{/* HEADER: Boxed Style */}
+							{/* HEADER: Matched Icon Style */}
 							<div className="flex items-center gap-3 pb-3 border-b border-slate-800">
 								<div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
 									<Zap size={18} />
@@ -272,7 +275,7 @@ const Dashboard = () => {
 
 							{/* PROTOCOLS SECTION */}
 							<div>
-								{/* HEADER: Matched to Core Priorities (Outside Card) */}
+								{/* HEADER: Matched Style (Outside Card) */}
 								<div className="flex items-center gap-3 pb-3 border-b border-slate-800 mb-4">
 									<div className="p-2 bg-slate-800/80 rounded-lg text-slate-400">
 										<Repeat size={18} />
